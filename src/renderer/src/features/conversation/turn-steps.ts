@@ -162,6 +162,16 @@ export function isTurnAnswer(message: AgentMessage): boolean {
 }
 
 /**
+ * The cost that the host stored for a turn, or null when it reported none. Null is not zero: a
+ * turn without a reported cost has an unknown cost, so a surface must show that it is unavailable
+ * and never `$0.00`. The same rule holds for a number that is not finite, which no report produces.
+ */
+export function reportedCostUsd(trace: ConversationTurnTrace | undefined): number | null {
+  const value = trace?.costUsd;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
  * The steps of each turn of a chat: its thoughts, the host's progress lines and its memory changes.
  * The thoughts and the memory changes are stored messages; the progress lines are in memory only.
  * After a restart, the tool steps of the stored trace take the place of the progress lines.
@@ -344,6 +354,9 @@ export function createTurnSteps(deps: {
       if (!turnId || !turn) return [];
       const { sent, replies } = sources();
       const { timed, stored, ran, answerAt, turnStart, turnEnd } = turn;
+      // A turn whose host reported no cost has no cost figure here. Leaving the field out keeps the
+      // trace's own rule: an absent cost is unavailable, and it is never drawn as zero.
+      const costUsd = reportedCostUsd(stored);
       const spans: TraceSpan[] = [
         {
           id: "turn",
@@ -354,7 +367,7 @@ export function createTurnSteps(deps: {
           start: turnStart,
           end: turnEnd,
           ...(stored?.tokens === undefined ? {} : { tokens: stored.tokens }),
-          ...(typeof stored?.costUsd === "number" ? { costUsd: stored.costUsd } : {}),
+          ...(costUsd === null ? {} : { costUsd }),
         },
       ];
       const titles = new Map(ran.map(({ subagent }) => [subagent.id, subagent.title]));

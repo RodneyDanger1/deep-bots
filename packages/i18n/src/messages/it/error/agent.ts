@@ -80,6 +80,7 @@ export const messages = {
   "error.agent.selectedGone": "L'agente selezionato non esiste più.",
   "error.agent.profileEndpointsChanged": "Gli endpoint personalizzati sono cambiati durante la generazione. Riprova.",
   "error.agent.profileInvalid": "Il provider ha restituito un profilo non valido. Prova a rivedere il prompt.",
+  "error.agent.profileBlank": "Il provider ha restituito un profilo vuoto. Riprova o prova un altro modello.",
   "error.agent.profileSectionUnavailable":
     "La sezione generata non è disponibile. Riprova o scegli una sezione a mano.",
   "error.agent.profileTimedOut": "La generazione del profilo è scaduta. Riprova.",

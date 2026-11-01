@@ -622,4 +622,16 @@ export const messages = {
   "settings.transfer.result.signInButton": "Bei {provider} anmelden",
   "settings.transfer.result.notImported": "Nicht importiert",
   "settings.transfer.result.warnings": "Bitte prüfen",
+  "settings.providerKey.nextBilling":
+    "Das Anbieterkonto hat kein Guthaben. Lade Guthaben im Anbieterkonto auf; ein neuer Schlüssel behebt das nicht.",
+  "settings.providerKey.nextRateLimit":
+    "Der Anbieter ist an seiner Grenze. Warte einige Minuten und versuche es erneut.",
+  // The Providers tab: the way from the personal settings to the server's provider page.
+  "settings.tab.providers.description": "Lade eine CLI herunter, verbinde ein Konto und wähle den Standardanbieter.",
+  "settings.tab.providers.title": "Anbieter",
+  "settings.providers.open.title": "Anbietereinstellungen",
+  "settings.providers.open.description": "Lade eine CLI herunter oder verbinde ein Konto auf {name}.",
+  "settings.providers.open.action": "Anbietereinstellungen öffnen",
+  "settings.providers.noServer": "Kein Server ist aktiv. Öffne einen Server, um seine Anbieter zu verwalten.",
+  "settings.providers.managedByHost": "Nur ein Eigentümer oder Administrator von {name} kann seine Anbieter verwalten.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -279,6 +279,19 @@ export const messages = {
     "{provider} heeft de opgeslagen API-sleutel geweigerd. Vervang of verwijder de sleutel in Instellingen en probeer het opnieuw.",
   "error.provider.keyProviderNoBalance":
     "Het {provider}-account van de opgeslagen API-sleutel heeft geen saldo. Voeg tegoed toe aan het account en probeer het opnieuw.",
+  "error.provider.keyProviderRateLimited": "{provider} beperkt het aantal verzoeken. Probeer het zo meteen opnieuw.",
+  "error.provider.keyProviderOverloaded":
+    "{provider} is overbelast en kon niet antwoorden. Probeer het zo meteen opnieuw.",
+  "error.provider.keyProviderInvalidParameters":
+    "{provider} weigerde de parameters van het verzoek. Controleer het model en de instellingen en probeer het daarna opnieuw.",
+  "error.provider.keyProviderServerError":
+    "{provider} had een serverfout en gaf geen antwoord. Probeer het zo meteen opnieuw.",
+  "error.provider.keyProviderReasoningReplay":
+    "{provider} weigerde de redenering van een eerdere beurt. Start een nieuwe chat en probeer het daarna opnieuw.",
+  "error.provider.contextWindowExceeded":
+    "Het bericht is te groot voor het contextvenster van dit model. Maak het korter of kies een model met een groter venster.",
+  "error.provider.visionUnsupported":
+    "{model} kan geen afbeeldingen lezen. Kies een model dat afbeeldingen kan lezen, of stuur alleen tekst.",
   "error.provider.messageTooLarge":
     "OpenBot heeft {provider} gestopt, omdat het een bericht groter dan {limit} MB stuurde.",
   "error.provider.customAgentIdInvalid":

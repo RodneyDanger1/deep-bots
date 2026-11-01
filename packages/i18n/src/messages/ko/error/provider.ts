@@ -276,6 +276,13 @@ export const messages = {
     "{provider}가 저장된 API 키를 거부했어요. 설정에서 키를 교체하거나 제거한 후 다시 시도하세요.",
   "error.provider.keyProviderNoBalance":
     "저장된 API 키의 {provider} 계정에 잔액이 없어요. 계정에 크레딧을 추가한 후 다시 시도하세요.",
+  "error.provider.keyProviderRateLimited": "{provider}에서 요청을 제한하고 있어요. 잠시 후 다시 시도해 주세요.",
+  "error.provider.keyProviderOverloaded": "{provider}가 과부하 상태라 응답하지 못했어요. 잠시 후 다시 시도해 주세요.",
+  "error.provider.keyProviderInvalidParameters": "{provider}가 요청 매개변수를 거부했어요. 모델과 설정을 확인한 뒤 다시 시도해 주세요.",
+  "error.provider.keyProviderServerError": "{provider}에 서버 오류가 발생해 응답하지 못했어요. 잠시 후 다시 시도해 주세요.",
+  "error.provider.keyProviderReasoningReplay": "{provider}가 이전 턴의 추론을 거부했어요. 새 채팅을 시작한 뒤 다시 시도해 주세요.",
+  "error.provider.contextWindowExceeded": "이 모델의 컨텍스트 창에 비해 메시지가 너무 커요. 메시지를 줄이거나 컨텍스트 창이 더 큰 모델을 선택해 주세요.",
+  "error.provider.visionUnsupported": "{model}은(는) 이미지를 읽을 수 없어요. 이미지를 읽을 수 있는 모델을 선택하거나 텍스트만 보내 주세요.",
   "error.provider.messageTooLarge":
     "{provider}이(가) {limit}MB보다 큰 메시지를 보내서 OpenBot이 {provider}을(를) 중지했어요.",
   "error.provider.customAgentIdInvalid":

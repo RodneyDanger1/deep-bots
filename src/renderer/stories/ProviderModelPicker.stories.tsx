@@ -238,3 +238,18 @@ export const OpenCodeTabExcludesCustom: Story = {
     value: "opencode/example-free",
   },
 };
+
+/**
+ * The DeepSeek models of an imported agent. Open the picker: under the effort row of the chosen
+ * model it shows the facts that the host reported - the 1M context, and image input on Flash only.
+ * Neither model reports an output cap, so no output figure appears for either, and the panel cannot
+ * promise one. A model with no facts shows no line at all.
+ */
+export const DeepSeekFacts: Story = {
+  args: {
+    provider: "deepseek",
+    value: "deepseek-v4-pro",
+    reasoningEffort: "high",
+    onReasoningEffortChange: fn(),
+  },
+};

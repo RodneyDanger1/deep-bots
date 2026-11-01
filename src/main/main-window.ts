@@ -56,6 +56,12 @@ import {
 import type { RemoteServerManager } from "./remote-server-manager";
 import type { RemoteWorkflowError } from "./remote-service-effects";
 import { sendToRenderer } from "./renderer-ipc";
+import {
+  createRendererRecovery,
+  isRecoverableRendererGone,
+  type RendererFaultKind,
+  type RendererRecoveryState,
+} from "./runtime-health";
 import { isTrustedRendererUrl } from "./trusted-renderer";
 import type { UpdateService } from "./update-service";
 import { followAppearance, followWindowGlass, windowBackgroundColor } from "./window-appearance";
@@ -111,6 +117,12 @@ export function createMainWindowHolder(): MainWindowHolder {
   return { current: null, load: null };
 }
 
+/** One renderer fault, before any recovery attempt. The reason is Electron's for a crash. */
+export interface RendererFault {
+  kind: RendererFaultKind;
+  reason: string | null;
+}
+
 export interface MainWindowContext {
   holder: MainWindowHolder;
   statePath: string;
@@ -130,6 +142,10 @@ export interface MainWindowContext {
   onRendererLoadStarted: () => void;
   /** Main must release resources when a renderer can no longer run its own cleanup. */
   onRendererGone: () => void;
+  /** The page stopped or stopped answering, on the way to the one automatic reload. */
+  onRendererFault: (fault: RendererFault) => void;
+  /** The automatic reload did not bring the page back, so the state is now named for the user. */
+  onRendererRecoveryFailed: (window: BrowserWindow, state: RendererRecoveryState) => void;
   /** Where the entry point attaches the Windows session-end handlers, which read its own flags. */
   onMainWindowCreated: (window: BrowserWindow) => void;
   reportError: (message: string, error: unknown) => void;
@@ -162,6 +178,8 @@ export function createMainWindowController({
   getTranslate,
   onRendererLoadStarted,
   onRendererGone,
+  onRendererFault,
+  onRendererRecoveryFailed,
   onMainWindowCreated,
   reportError,
 }: MainWindowContext): MainWindowController {
@@ -253,7 +271,59 @@ export function createMainWindowController({
       const interfaceSize = getServices()?.interfaceSize;
       if (interfaceSize) window.webContents.setZoomFactor(interfaceSize.zoomFactor);
     });
-    window.webContents.on("render-process-gone", onRendererGone);
+    /*
+     * One automatic reload per page. A second fault before the page stays up for the reset interval
+     * is a named state, not another reload: OpenBot must never show a window that reloads for ever.
+     * `forcefullyCrashRenderer` ends an unresponsive page on purpose, so that one
+     * `render-process-gone` is expected and does not count as a second fault.
+     */
+    const recovery = createRendererRecovery();
+    let expectedGone = 0;
+    let reportedRecoveryFailure = false;
+    const reportRecoveryFailed = (): void => {
+      if (reportedRecoveryFailure || window.isDestroyed()) return;
+      reportedRecoveryFailure = true;
+      onRendererRecoveryFailed(window, recovery.state());
+    };
+    const recoverRenderer = (kind: RendererFaultKind, reason: string | null): void => {
+      if (isQuitting() || window.isDestroyed()) return;
+      onRendererFault({ kind, reason });
+      // The page's own cleanup cannot run in a renderer that ended, so main releases what it held.
+      onRendererGone();
+      const decision = recovery.fault(kind);
+      if (decision.action === "give-up") {
+        reportRecoveryFailed();
+        return;
+      }
+      if (decision.action === "force-and-reload") {
+        expectedGone += 1;
+        try {
+          window.webContents.forcefullyCrashRenderer();
+        } catch (error) {
+          reportError("Could not end the unresponsive page", error);
+        }
+      }
+      loadRenderer(window).catch((error: unknown) => {
+        reportError("Could not reload the page after its renderer failed", error);
+        reportRecoveryFailed();
+      });
+    };
+    window.webContents.on("render-process-gone", (_event, details) => {
+      if (!isRecoverableRendererGone(details.reason)) return;
+      if (expectedGone > 0) {
+        expectedGone -= 1;
+        return;
+      }
+      recoverRenderer("render-process-gone", details.reason);
+    });
+    window.webContents.on("unresponsive", () => recoverRenderer("unresponsive", null));
+    window.webContents.on("did-finish-load", () => {
+      reportedRecoveryFailure = false;
+      recovery.loaded();
+    });
+    window.webContents.on("did-fail-load", () => {
+      if (recovery.state().phase === "recovering") reportRecoveryFailed();
+    });
     window.webContents.once("destroyed", onRendererGone);
     attachAppInput(window, getServices, getTranslate, { closesBrowserTabs: true });
     window.webContents.on("will-navigate", (event, targetUrl) => {

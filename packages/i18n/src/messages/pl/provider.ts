@@ -46,6 +46,9 @@ export const messages = {
   "provider.status.unavailable": "Niedostępny",
   "provider.status.checking": "Sprawdzanie",
   "provider.status.off": "Wyłączony",
+  "provider.piCli.notDownloaded": "{name} działa w Pi CLI, które nie jest pobrane.",
+  "provider.piCli.downloadFailed": "DeepSeek Bots nie mógł pobrać Pi CLI. Spróbuj ponownie.",
+  "provider.piCli.cancelDownloadFailed": "DeepSeek Bots nie mógł anulować pobierania Pi CLI. Spróbuj ponownie.",
   "provider.gemini.hostSignIn":
     "Aby połączyć Gemini, otwórz OpenBot na hoście i wybierz „Połącz” w sekcji Ustawienia serwera > Dostawcy. Logowanie Google wymaga przeglądarki na tym hoście. Zdalne logowanie nie jest obsługiwane.",
 

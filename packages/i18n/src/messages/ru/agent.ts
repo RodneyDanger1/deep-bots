@@ -75,4 +75,10 @@ export const messages = {
   "agent.color.indigo": "Индиго",
   "agent.color.violet": "Фиолетовый",
   "agent.color.magenta": "Пурпурный",
+  "agent.error.providerAuth": "Провайдер отклонил ключ API. Обновите ключ в Настройках и повторите попытку.",
+  "agent.error.providerBilling": "На счёте провайдера нет средств. Пополните счёт провайдера и повторите попытку.",
+  "agent.error.providerRateLimit": "Провайдер достиг ограничения запросов. Подождите несколько минут и повторите попытку.",
+  "agent.error.providerUnavailable": "Провайдер дал сбой на своей стороне. Повторите попытку через несколько минут.",
+  "agent.error.providerRequest": "Провайдер отклонил запрос. Выберите другую модель и повторите попытку.",
+  "agent.error.providerUnreadable": "Провайдер отправил ошибку, которую OpenBot не может показать. Повторите попытку или проверьте счёт провайдера.",
 } as const satisfies PartialTranslation<typeof source>;

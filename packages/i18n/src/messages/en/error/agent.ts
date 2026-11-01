@@ -73,6 +73,7 @@ export const messages = defineMessages("error.agent", {
   "error.agent.selectedGone": "The selected agent no longer exists.",
   "error.agent.profileEndpointsChanged": "The custom endpoints changed while this was generating. Try again.",
   "error.agent.profileInvalid": "The provider returned an invalid profile. Try revising your prompt.",
+  "error.agent.profileBlank": "The provider returned an empty profile. Try again, or try another model.",
   "error.agent.profileSectionUnavailable":
     "The generated section is unavailable. Try again or choose a section manually.",
   "error.agent.profileTimedOut": "Profile generation timed out. Try again.",

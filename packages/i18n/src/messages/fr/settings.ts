@@ -617,4 +617,18 @@ export const messages = {
   "settings.transfer.result.signInButton": "Se connecter à {provider}",
   "settings.transfer.result.notImported": "Non importé",
   "settings.transfer.result.warnings": "À vérifier",
+  "settings.providerKey.nextBilling":
+    "Le compte du fournisseur n'a pas de crédit. Ajoutez des fonds sur le compte du fournisseur ; une nouvelle clé n'y change rien.",
+  "settings.providerKey.nextRateLimit":
+    "Le fournisseur a atteint sa limite. Attendez quelques minutes, puis réessayez.",
+  // The Providers tab: the way from the personal settings to the server's provider page.
+  "settings.tab.providers.description":
+    "Téléchargez une CLI, connectez un compte et choisissez le fournisseur par défaut.",
+  "settings.tab.providers.title": "Fournisseurs",
+  "settings.providers.open.title": "Réglages des fournisseurs",
+  "settings.providers.open.description": "Téléchargez une CLI ou connectez un compte sur {name}.",
+  "settings.providers.open.action": "Ouvrir les réglages des fournisseurs",
+  "settings.providers.noServer": "Aucun serveur n'est actif. Ouvrez un serveur pour gérer ses fournisseurs.",
+  "settings.providers.managedByHost":
+    "Seul le propriétaire ou un administrateur de {name} peut gérer ses fournisseurs.",
 } as const satisfies PartialTranslation<typeof source>;

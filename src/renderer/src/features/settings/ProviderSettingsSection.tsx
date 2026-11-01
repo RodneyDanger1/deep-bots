@@ -61,6 +61,7 @@ import { createEffect, createMemo, createSignal, createStore, Show, untrack } fr
 import { ProviderSignInDialogs } from "../../components/ProviderSignInDialogs";
 import type { ProviderConnectionApi } from "../../components/provider-connection-api";
 import { createCustomProviderHostState } from "../custom-providers/custom-provider-host-state";
+import { piCliActionProvider } from "./provider-pi-cli";
 import { createProviderPromptCache, type ProviderPromptCacheSource } from "./provider-prompt-cache";
 import { createSettingsGeneralStore, type SettingsGeneralStore } from "./stores/general-store";
 
@@ -177,12 +178,39 @@ function ProviderSettingsSection(props: ProviderSettingsSectionProps) {
   async function downloadProvider(provider: AgentProviderId): Promise<void> {
     const download = props.onDownloadProvider;
     if (!download) return;
+    // Inception, DeepSeek and OpenRouter run in the Pi CLI, so the download of their row installs
+    // that runtime, and the failure names the CLI that the download truly installs.
+    const target = piCliActionProvider(provider);
     setDownloadError("");
     try {
-      await download(provider);
+      await download(target);
     } catch (error) {
       setDownloadError(
-        i18n.errorMessage(error, i18n.t("onboarding.error.download", { provider: agentProviderName(provider) })),
+        i18n.errorMessage(
+          error,
+          target === provider
+            ? i18n.t("onboarding.error.download", { provider: agentProviderName(provider) })
+            : i18n.t("provider.piCli.downloadFailed"),
+        ),
+      );
+    }
+  }
+  /** The Cancel of a key-only row ends the Pi CLI download that its Download starts. */
+  async function cancelProviderDownload(provider: AgentProviderId): Promise<void> {
+    const cancel = props.onCancelProviderDownload;
+    if (!cancel) return;
+    const target = piCliActionProvider(provider);
+    setDownloadError("");
+    try {
+      await cancel(target);
+    } catch (error) {
+      setDownloadError(
+        i18n.errorMessage(
+          error,
+          target === provider
+            ? i18n.t("onboarding.error.cancelDownload", { provider: agentProviderName(target) })
+            : i18n.t("provider.piCli.cancelDownloadFailed"),
+        ),
       );
     }
   }
@@ -265,7 +293,7 @@ function ProviderSettingsSection(props: ProviderSettingsSectionProps) {
         customProviders={customProviders()}
         customProviderHarnesses={Boolean(harnesses())}
         onDownloadProvider={props.onDownloadProvider ? downloadProvider : undefined}
-        onCancelProviderDownload={props.onCancelProviderDownload}
+        onCancelProviderDownload={props.onCancelProviderDownload ? cancelProviderDownload : undefined}
         onUpdateProvider={props.onUpdateProvider}
         onRestartProvider={props.onRestartProvider}
         onCancelProviderRestart={props.onCancelProviderRestart}

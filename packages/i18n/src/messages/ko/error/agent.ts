@@ -73,6 +73,7 @@ export const messages = {
   "error.agent.selectedGone": "선택한 에이전트가 더 이상 없어요.",
   "error.agent.profileEndpointsChanged": "생성하는 동안 사용자 지정 엔드포인트가 변경되었어요. 다시 시도해 주세요.",
   "error.agent.profileInvalid": "제공자가 올바르지 않은 프로필을 반환했어요. 프롬프트를 수정해 보세요.",
+  "error.agent.profileBlank": "제공자가 빈 프로필을 반환했어요. 다시 시도하거나 다른 모델을 사용해 보세요.",
   "error.agent.profileSectionUnavailable": "생성된 섹션을 사용할 수 없어요. 다시 시도하거나 섹션을 직접 선택하세요.",
   "error.agent.profileTimedOut": "프로필 생성 시간이 초과되었어요. 다시 시도해 주세요.",
   "error.agent.profileDisconnected": "프로필을 생성하는 동안 제공자 연결이 끊어졌어요.",

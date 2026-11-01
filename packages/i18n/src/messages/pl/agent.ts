@@ -75,4 +75,10 @@ export const messages = {
   "agent.color.indigo": "Indygo",
   "agent.color.violet": "Fioletowy",
   "agent.color.magenta": "Purpurowy",
+  "agent.error.providerAuth": "Dostawca odrzucił klucz API. Zaktualizuj klucz w Ustawieniach i spróbuj ponownie.",
+  "agent.error.providerBilling": "Konto dostawcy nie ma środków. Dodaj środki na koncie dostawcy i spróbuj ponownie.",
+  "agent.error.providerRateLimit": "Dostawca osiągnął limit zapytań. Odczekaj kilka minut i spróbuj ponownie.",
+  "agent.error.providerUnavailable": "Dostawca zawiódł po swojej stronie. Spróbuj ponownie za kilka minut.",
+  "agent.error.providerRequest": "Dostawca odrzucił zapytanie. Wybierz inny model i spróbuj ponownie.",
+  "agent.error.providerUnreadable": "Dostawca wysłał błąd, którego OpenBot nie może pokazać. Spróbuj ponownie lub sprawdź konto dostawcy.",
 } as const satisfies PartialTranslation<typeof source>;

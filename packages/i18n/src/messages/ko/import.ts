@@ -143,4 +143,8 @@ export const messages = {
   "import.hermes.reason.gateway": "OpenBot에서 다시 연결하세요. 루틴의 텍스트는 유지돼요.",
   "import.hermes.reason.secrets": "복사되지 않아요. 도구가 필요로 할 때 OpenBot에서 각 키를 다시 입력하세요.",
   "import.hermes.reason.history": "채팅 기록은 Hermes에 남아요. 학습한 내용은 메모리에 유지돼요.",
+  "import.disclosure.chooseAfter": "가져온 후 각 에이전트의 모델과 노력을 선택하세요.",
+  "import.disclosure.access": "가져오기는 워크스페이스 액세스와 컴퓨터 제어를 설정할 수 없어요. 가져온 에이전트는 이 컴퓨터의 기본값으로 시작해요.",
+  "import.disclosure.skills": "파일은 그 파일에 포함된 스킬만 가져와요. DeepSeek Bots 팩에는 스킬이 없어요. 여섯 개의 스킬 팩은 따로 설치해요.",
+  "import.disclosure.routines": "루틴은 파일이 지정한 상태로 가져와요. DeepSeek Bots 팩은 모든 루틴을 비활성으로 가져오며, 실행하려면 루틴을 켜세요.",
 } as const satisfies PartialTranslation<typeof source>;

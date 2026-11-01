@@ -272,7 +272,10 @@ async function measureCpu(flags: Flags, target: AutomationTarget): Promise<void>
   // reads and the usual call passes the path an earlier run printed.
   const out = flagValue(flags, "out");
   const outPath = out === null || out === "" ? null : resolveWritablePath(CPU_ROOT, out, ".json", "CPU reports");
-  const browser = await openDevBrowser(target.port, logger, { ownerPid: target.pid });
+  const browser = await openDevBrowser(target.port, logger, {
+    ownerPid: target.pid,
+    expectedRendererPort: target.expectedRendererPort,
+  });
   let profile: Awaited<ReturnType<typeof profileCpu>>;
   try {
     logger.info(`sampling for ${durationMs} ms every ${intervalMs} ms`);
@@ -297,7 +300,10 @@ async function measureMemory(flags: Flags, target: AutomationTarget): Promise<vo
   if (heapSelector !== null && heapSelector.trim() === "") {
     throw new Error("--heap-snapshot=<target-id|url-substring> cannot be empty.");
   }
-  const browser = await openDevBrowser(target.port, logger, { ownerPid: target.pid });
+  const browser = await openDevBrowser(target.port, logger, {
+    ownerPid: target.pid,
+    expectedRendererPort: target.expectedRendererPort,
+  });
   let document: Awaited<ReturnType<typeof profileMemory>> & { heapSnapshot?: string };
   try {
     document = await profileMemory({ browser, rootPid: target.pid, label, logger });
@@ -358,7 +364,10 @@ async function main(): Promise<void> {
   const target = resolveTarget(flags, readDevInstanceRecords(), readService(flags));
   logger.info(`target ${target.description}`);
   if (command === "pages") {
-    const browser = await openDevBrowser(target.port, logger, { ownerPid: target.pid });
+    const browser = await openDevBrowser(target.port, logger, {
+    ownerPid: target.pid,
+    expectedRendererPort: target.expectedRendererPort,
+  });
     try {
       const pages = await describeDevPages(devBrowserPages(browser), readTargetId);
       process.stdout.write(`${JSON.stringify({ pages }, null, 2)}\n`);

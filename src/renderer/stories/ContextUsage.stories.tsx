@@ -8,6 +8,8 @@ import {
   type ContextCompactionView,
   ContextUsageMeter,
   type ContextUsageView,
+  contextUsageView,
+  type ReportedContextUsageView,
 } from "@openbot/ui/features/conversation/ContextUsage";
 import type { JSX } from "@solidjs/web";
 import { createSignal, For, Show } from "solid-js";
@@ -30,7 +32,7 @@ import { STORY_AGENT, STORY_AGENTS } from "./fixtures";
 const MINUTE = 60_000;
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * MINUTE).toISOString();
 
-const CODEX: ContextUsageView = {
+const CODEX: ReportedContextUsageView = {
   usedTokens: 168_400,
   windowTokens: 272_000,
   autoCompactAt: 0.8,
@@ -38,7 +40,7 @@ const CODEX: ContextUsageView = {
   lastCompaction: { beforeTokens: 219_000, afterTokens: 41_200 },
 };
 
-const CLAUDE: ContextUsageView = {
+const CLAUDE: ReportedContextUsageView = {
   usedTokens: 141_800,
   windowTokens: 200_000,
   autoCompactAt: null,
@@ -55,14 +57,14 @@ const CLAUDE: ContextUsageView = {
   ],
 };
 
-const GEMINI: ContextUsageView = {
+const GEMINI: ReportedContextUsageView = {
   usedTokens: 312_500,
   windowTokens: 1_048_576,
   autoCompactAt: 0.8,
   compacting: false,
 };
 
-const ACP_NO_SUMMARY: ContextUsageView = {
+const ACP_NO_SUMMARY: ReportedContextUsageView = {
   usedTokens: 241_000,
   windowTokens: 256_000,
   autoCompactAt: null,
@@ -230,7 +232,16 @@ export const NoSummary: Story = {
   render: (args) => <Composer usage={args.usage} />,
 };
 
-const COMPACTING: ContextUsageView = { ...CODEX, usedTokens: 219_000, compacting: true };
+/**
+ * A provider that reports no usage. The place of the ring says so in one muted line, so a thread
+ * without a reading is explained instead of silently missing its control. Nothing opens on it: with
+ * no figures there is no popover, no percentage and no `noAuto` row.
+ */
+export const NotReported: Story = {
+  render: () => <Composer usage={contextUsageView(undefined)} />,
+};
+
+const COMPACTING: ReportedContextUsageView = { ...CODEX, usedTokens: 219_000, compacting: true };
 
 /** While the provider compacts, the notice above the input says why the queue does not move. */
 export const CompactingNotice: Story = {

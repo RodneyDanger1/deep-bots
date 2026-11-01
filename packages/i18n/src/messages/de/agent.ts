@@ -78,4 +78,10 @@ export const messages = {
   "agent.color.indigo": "Indigo",
   "agent.color.violet": "Violett",
   "agent.color.magenta": "Magenta",
+  "agent.error.providerAuth": "Der Anbieter hat den API-Schlüssel abgelehnt. Aktualisiere den Schlüssel in den Einstellungen und versuche es erneut.",
+  "agent.error.providerBilling": "Das Anbieterkonto hat kein Guthaben. Lade Guthaben im Anbieterkonto auf und versuche es erneut.",
+  "agent.error.providerRateLimit": "Der Anbieter ist an seinem Ratenlimit. Warte einige Minuten und versuche es erneut.",
+  "agent.error.providerUnavailable": "Der Anbieter ist auf seiner Seite fehlgeschlagen. Versuche es in einigen Minuten erneut.",
+  "agent.error.providerRequest": "Der Anbieter hat die Anfrage abgelehnt. Wähle ein anderes Modell und versuche es erneut.",
+  "agent.error.providerUnreadable": "Der Anbieter hat einen Fehler gesendet, den OpenBot nicht anzeigen kann. Versuche es erneut oder prüfe das Anbieterkonto.",
 } as const satisfies PartialTranslation<typeof source>;

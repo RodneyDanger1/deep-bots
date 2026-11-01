@@ -39,6 +39,9 @@ export const messages = {
   "provider.status.unavailable": "No disponible",
   "provider.status.checking": "Comprobando",
   "provider.status.off": "Desactivado",
+  "provider.piCli.notDownloaded": "{name} se ejecuta en la Pi CLI, que no está descargada.",
+  "provider.piCli.downloadFailed": "DeepSeek Bots no pudo descargar la Pi CLI. Inténtalo de nuevo.",
+  "provider.piCli.cancelDownloadFailed": "DeepSeek Bots no pudo cancelar la descarga de la Pi CLI. Inténtalo de nuevo.",
   "provider.gemini.hostSignIn":
     "Para conectar Gemini, abre OpenBot en el host y selecciona Conectar en Ajustes del servidor > Proveedores. El inicio de sesión de Google necesita un navegador en ese host. No se admite el inicio de sesión remoto.",
   "provider.key.free": "Gratis",

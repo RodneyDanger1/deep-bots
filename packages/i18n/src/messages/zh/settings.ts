@@ -601,4 +601,14 @@ export const messages = {
   "settings.transfer.result.signInButton": "登录 {provider}",
   "settings.transfer.result.notImported": "未导入",
   "settings.transfer.result.warnings": "请检查以下内容",
+  "settings.providerKey.nextBilling": "服务商账户没有余额。请在服务商账户充值；更换密钥无法解决。",
+  "settings.providerKey.nextRateLimit": "服务商已达到限额。请等待几分钟后重试。",
+  // The Providers tab: the way from the personal settings to the server's provider page.
+  "settings.tab.providers.description": "下载 CLI、连接账号，并选择默认服务商。",
+  "settings.tab.providers.title": "服务商",
+  "settings.providers.open.title": "服务商设置",
+  "settings.providers.open.description": "在 {name} 上下载 CLI 或连接账号。",
+  "settings.providers.open.action": "打开服务商设置",
+  "settings.providers.noServer": "没有活动服务器。请打开服务器以管理其服务商。",
+  "settings.providers.managedByHost": "只有 {name} 的所有者或管理员可以管理其服务商。",
 } as const satisfies PartialTranslation<typeof source>;

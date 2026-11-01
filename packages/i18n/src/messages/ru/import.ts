@@ -94,4 +94,8 @@ export const messages = {
   "import.result.channel": "Канал",
   "import.result.notImportedTitle": "Не импортировано",
   "import.result.warnings": "Часть элементов не перенесена",
+  "import.disclosure.chooseAfter": "После импорта выберите модель и уровень усилий для каждого агента.",
+  "import.disclosure.access": "Импорт не задаёт доступ к рабочему пространству и Управление ПК. Импортированные агенты начинают со значений по умолчанию этого компьютера.",
+  "import.disclosure.skills": "Файл импортирует только те навыки, которые в нём есть. В пакете DeepSeek Bots их нет: шесть пакетов навыков устанавливаются отдельно.",
+  "import.disclosure.routines": "Регулярные задачи импортируются в состоянии, указанном в файле. Пакет DeepSeek Bots импортирует все регулярные задачи неактивными; включите нужную, когда она должна выполняться.",
 } as const satisfies PartialTranslation<typeof source>;

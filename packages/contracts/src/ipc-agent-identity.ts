@@ -7,7 +7,7 @@ import {
 import { INPUT_LIMITS } from "./input-limits";
 import { type AgentProviderId, isAgentProvider } from "./ipc-agent-status";
 import { isBoundedString } from "./ipc-bounded-values";
-import { type DynamicRecord, isBoolean, isDynamicRecord, isOneOf, isString } from "./runtime-values";
+import { type DynamicRecord, isBoolean, isDynamicRecord, isNumber, isOneOf, isString } from "./runtime-values";
 
 export type AgentModelId = string;
 
@@ -71,6 +71,32 @@ export function isAvatarHue(value: unknown): value is AvatarHue {
   return isOneOf(AVATAR_HUES, value);
 }
 
+/** The input a model can read. Absent metadata means unknown, never "text only". */
+export const AGENT_MODEL_INPUT_MODALITIES = ["text", "image"] as const;
+export type AgentModelInputModality = (typeof AGENT_MODEL_INPUT_MODALITIES)[number];
+
+/** A token count of a model's window or output limit. The ceiling stays far above any live model. */
+const AGENT_MODEL_TOKEN_LIMIT_MAX = 100_000_000;
+
+function isAgentModelTokenCount(value: unknown): value is number {
+  return isNumber(value) && Number.isSafeInteger(value) && value >= 1 && value <= AGENT_MODEL_TOKEN_LIMIT_MAX;
+}
+
+function isAgentModelInputModality(value: unknown): value is AgentModelInputModality {
+  return isOneOf(AGENT_MODEL_INPUT_MODALITIES, value);
+}
+
+/** A non-empty list of distinct modalities. One unusable entry rejects the whole list. */
+function isAgentModelInputModalities(value: unknown): value is AgentModelInputModality[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.length <= AGENT_MODEL_INPUT_MODALITIES.length &&
+    value.every(isAgentModelInputModality) &&
+    new Set(value).size === value.length
+  );
+}
+
 export interface AgentModelOption {
   provider: AgentProviderId;
   id: AgentModelId;
@@ -88,6 +114,25 @@ export interface AgentModelOption {
    * the model has no fast mode.
    */
   fastServiceTier?: string;
+  /**
+   * The model's context window in tokens, when the provider reports one. **Local only.** The Team
+   * API model list keeps its released key set (`GET agent-models` in each protocol codec), so this
+   * field, `maxOutputTokens` and `inputModalities` are never serialized to it; a remote peer sees
+   * only `provider`, `id`, `name`, `description`, `defaultReasoningEffort` and
+   * `supportedReasoningEfforts`. Absent means unknown, and the caller uses its dated fallback table.
+   */
+  contextWindow?: number;
+  /**
+   * The model's maximum output tokens, when the provider reports one. Local only, like
+   * `contextWindow`: absent means unknown, never zero.
+   */
+  maxOutputTokens?: number;
+  /**
+   * The input this model accepts, when the provider reports it. Local only, like `contextWindow`.
+   * Absent means unknown, which must not be read as "text only": the vision gate needs a known
+   * value before it refuses an image.
+   */
+  inputModalities?: AgentModelInputModality[];
 }
 
 export function isAgentModelOption(value: unknown): value is AgentModelOption {
@@ -110,6 +155,9 @@ function hasAgentModelOptionFields(value: DynamicRecord): boolean {
     Array.isArray(value.supportedReasoningEfforts) &&
     value.supportedReasoningEfforts.every(isReasoningEffort) &&
     (value.reasoningEffortConfigurable === undefined || isBoolean(value.reasoningEffortConfigurable)) &&
-    (value.fastServiceTier === undefined || isBoundedString(value.fastServiceTier, INPUT_LIMITS.serviceTier))
+    (value.fastServiceTier === undefined || isBoundedString(value.fastServiceTier, INPUT_LIMITS.serviceTier)) &&
+    (value.contextWindow === undefined || isAgentModelTokenCount(value.contextWindow)) &&
+    (value.maxOutputTokens === undefined || isAgentModelTokenCount(value.maxOutputTokens)) &&
+    (value.inputModalities === undefined || isAgentModelInputModalities(value.inputModalities))
   );
 }

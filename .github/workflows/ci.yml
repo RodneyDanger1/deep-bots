@@ -597,11 +597,15 @@ jobs:
     # Runs the real ACP provider drivers (custom agents, OpenCode, Cline) over fake agents from
     # `scripts/provider-fakes/`. The fakes speak ACP on stdio as the released CLIs do, or replay a
     # recorded transcript of a released CLI, so the job needs no provider account, network or display.
+    # It also runs the four Stage-1 pack gates, which drive the real agent import on a temporary
+    # profile and need no provider either, and the DeepSeek/runtime gates whose fakes speak the real
+    # Pi JSONL and database-host protocols. `all-checks-pass` already needs this job, so no `needs`
+    # edit was needed for them.
     name: Provider fakes E2E
     needs: detect
     if: needs.detect.outputs.desktop == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -711,6 +715,74 @@ jobs:
         if: ${{ !cancelled() }}
         run: bun run test:provider-transcript-replay
 
+      - name: Run the Stage-1 pack import E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:stage1-pack-import
+
+      - name: Run the Stage-1 instruction read E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:stage1-instruction-read
+
+      - name: Run the Stage-1 archive refusal E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:stage1-archive-refusal
+
+      - name: Run the Stage-1 pack bytes E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:stage1-pack-bytes
+
+      - name: Run the DeepSeek context budget E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:deepseek-context-budget
+
+      - name: Run the DeepSeek compaction threshold E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:deepseek-compaction-threshold
+
+      - name: Run the DeepSeek key redaction E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:deepseek-key-redaction
+
+      - name: Run the DeepSeek reasoning replay E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:deepseek-reasoning-replay
+
+      - name: Run the DeepSeek thinking level E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:deepseek-thinking-level
+
+      - name: Run the DeepSeek pricing E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:deepseek-pricing
+
+      - name: Run the DeepSeek vision gate E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:deepseek-vision-gate
+
+      - name: Run the DeepSeek error mapping E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:deepseek-error-mapping
+
+      - name: Run the DeepSeek model metadata E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:deepseek-model-metadata
+
+      - name: Run the DeepSeek JSON blank retry E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:deepseek-json-blank-retry
+
+      - name: Run the DeepSeek search MCP E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:deepseek-search-mcp
+
+      - name: Run the runtime database host E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:runtime-db-host
+
+      - name: Run the runtime fault injection E2E test
+        if: ${{ !cancelled() }}
+        run: bun run test:runtime-fault-injection
+
       - name: Upload the reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -742,6 +814,20 @@ jobs:
             .openbot-build/cursor-model-set-e2e/
             .openbot-build/cline-free-models-e2e/
             .openbot-build/provider-transcript-replay-e2e/
+            .openbot-build/stage1/
+            .openbot-build/deepseek-context-budget/
+            .openbot-build/deepseek-compaction-threshold/
+            .openbot-build/deepseek-key-redaction/
+            .openbot-build/deepseek-reasoning-replay/
+            .openbot-build/deepseek-thinking-level/
+            .openbot-build/deepseek-pricing/
+            .openbot-build/deepseek-vision/
+            .openbot-build/deepseek-errors/
+            .openbot-build/deepseek-model-metadata/
+            .openbot-build/deepseek-json-blank-retry/
+            .openbot-build/deepseek-search-mcp/
+            .openbot-build/runtime-faults/
+            .openbot-build/runtime-db-host-e2e/
           if-no-files-found: ignore
 
   surfaces:

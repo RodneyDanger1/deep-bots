@@ -11,6 +11,7 @@ import {
   Popover,
   RadialProgress,
   type RadialProgressTone,
+  Text,
   TriangleAlert,
 } from "@openbot/ui";
 import { ContentExitMotion } from "@openbot/ui/menu-motion";
@@ -21,7 +22,10 @@ import { AgentNewChatDialog } from "./AgentNewChatDialog";
 import { CloseIcon } from "./ConversationIcons";
 import { formatChatTimestamp } from "./chat-timestamp";
 
-export interface ContextUsageView {
+/** A thread's context as its provider reported it: the figures behind the ring and the popover. */
+export interface ReportedContextUsageView {
+  /** The view's discriminant: only an unreported thread carries `false` here. */
+  reported?: undefined;
   usedTokens: number;
   windowTokens: number;
   /**
@@ -37,10 +41,32 @@ export interface ContextUsageView {
   categories?: readonly { category: AgentContextCategory; tokens: number }[] | undefined;
 }
 
-/** The meter's view of a thread's context state, or undefined when its provider reported no usage. */
-export function contextUsageView(state: AgentContextState | undefined): ContextUsageView | undefined {
+/**
+ * A thread whose provider reported no usage. It holds no figures, so the meter says that rather
+ * than draw an empty ring: an empty ring reads as zero used, and no control at all reads as a
+ * missing feature.
+ */
+export interface UnreportedContextUsageView {
+  reported: false;
+}
+
+export type ContextUsageView = ReportedContextUsageView | UnreportedContextUsageView;
+
+/** The figures of a view that has them, or nothing. The meter draws only what this returns. */
+function reportedUsage(view: ContextUsageView): ReportedContextUsageView | undefined {
+  return view.reported === false ? undefined : view;
+}
+
+const UNREPORTED_CONTEXT_USAGE: UnreportedContextUsageView = { reported: false };
+
+/**
+ * The meter's view of a thread's context state: its figures, or the fact that its provider reported
+ * none. A provider that reports nothing keeps `noAuto` and every other figure unreachable, because
+ * a thread with no reading has nothing to explain.
+ */
+export function contextUsageView(state: AgentContextState | undefined): ContextUsageView {
   const usage = state?.usage;
-  if (!usage) return undefined;
+  if (!usage) return UNREPORTED_CONTEXT_USAGE;
   const compaction = state.compaction;
   return {
     ...usage,
@@ -64,7 +90,7 @@ const CATEGORY_LABEL = {
 } as const satisfies Record<AgentContextCategory, AppTextKey>;
 
 /** The rows with tokens, in the fixed order that also gives each its colour. */
-function categoryRows(usage: ContextUsageView): { category: AgentContextCategory; tokens: number }[] {
+function categoryRows(usage: ReportedContextUsageView): { category: AgentContextCategory; tokens: number }[] {
   const rows = usage.categories ?? [];
   return AGENT_CONTEXT_CATEGORIES.flatMap((category) => {
     const tokens = rows.find((row) => row.category === category)?.tokens ?? 0;
@@ -72,7 +98,7 @@ function categoryRows(usage: ContextUsageView): { category: AgentContextCategory
   });
 }
 
-function usedShare(usage: ContextUsageView): number {
+function usedShare(usage: ReportedContextUsageView): number {
   return usage.windowTokens > 0 ? Math.min(1, Math.max(0, usage.usedTokens / usage.windowTokens)) : 0;
 }
 
@@ -81,7 +107,7 @@ function usedShare(usage: ContextUsageView): number {
  * do. It takes the warning colour 10 points before the compaction point, and the danger colour only
  * when nothing will compact the thread and it is nearly full.
  */
-function meterLevel(usage: ContextUsageView): "quiet" | "normal" | RadialProgressTone {
+function meterLevel(usage: ReportedContextUsageView): "quiet" | "normal" | RadialProgressTone {
   const share = usedShare(usage);
   if (!usage.nativeManaged && usage.autoCompactAt === null && share >= 0.9) return "danger";
   if (share >= (usage.autoCompactAt ?? 0.9) - 0.1) return "warning";
@@ -89,12 +115,47 @@ function meterLevel(usage: ContextUsageView): "quiet" | "normal" | RadialProgres
 }
 
 /**
- * The composer's context ring and the popover it opens. It shows how full the agent's provider
- * thread is and when it compacts. `newChat` adds the New chat action, which asks first. `compact`
- * adds the Compact action, for a thread that OpenBot compacts (`autoCompactAt` is set).
+ * The composer's context meter. A thread whose provider reported usage gets the ring and its
+ * popover; a thread that reported none gets one muted line that says so, because a ring with no
+ * reading would show a share that no provider measured.
  */
 export function ContextUsageMeter(props: {
   usage: ContextUsageView;
+  newChat?:
+    | {
+        agent: Pick<AgentProfile, "name" | "avatarSeed" | "avatarHue" | "avatarUrl">;
+        start: () => Promise<void>;
+      }
+    | undefined;
+  compact?: (() => Promise<void>) | undefined;
+}) {
+  return (
+    <Show when={reportedUsage(props.usage)} fallback={<ContextNotReported />}>
+      {(usage) => <ReportedContextUsageMeter usage={usage()} newChat={props.newChat} compact={props.compact} />}
+    </Show>
+  );
+}
+
+/** The muted line in the place of the ring: the provider gave no reading, so there is none to show. */
+function ContextNotReported() {
+  const { t } = useText();
+  return (
+    <Text as="span" variant="caption" tone="muted" role="status">
+      {t("composer.context.notReported")}
+    </Text>
+  );
+}
+
+/**
+ * The composer's context ring and the popover it opens. It shows how full the agent's provider
+ * thread is and when it compacts. `newChat` adds the New chat action, which asks first. `compact`
+ * adds the Compact action, for a thread that OpenBot compacts (`autoCompactAt` is set).
+ *
+ * Every figure here comes from a reported usage, so `noAuto` and the rest can never render without
+ * data.
+ */
+function ReportedContextUsageMeter(props: {
+  usage: ReportedContextUsageView;
   newChat?:
     | {
         agent: Pick<AgentProfile, "name" | "avatarSeed" | "avatarHue" | "avatarUrl">;
@@ -285,7 +346,7 @@ export function ContextUsageMeter(props: {
  * The used share, split by category when the provider gives one, then free space, with a tick where
  * the automatic compaction runs.
  */
-function ContextUsageBar(props: { usage: ContextUsageView }) {
+function ContextUsageBar(props: { usage: ReportedContextUsageView }) {
   const rows = () => categoryRows(props.usage);
   const rowsTotal = () => rows().reduce((sum, row) => sum + row.tokens, 0);
   return (

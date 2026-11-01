@@ -132,4 +132,9 @@ export const messages = {
   "composer.newChat.action": "새 채팅",
   "composer.context.compact": "지금 압축",
   "composer.context.compactFailed": "컨텍스트를 압축할 수 없었어요. 다시 시도해 주세요.",
+  "composer.context.notReported": "제공자가 컨텍스트를 보고하지 않음",
+  "composer.model.context": "{tokens} 컨텍스트",
+  "composer.model.maxOutput": "최대 출력 {tokens}",
+  "composer.model.imageInput": "이미지 입력",
+  "composer.model.textOnly": "텍스트만",
 } as const satisfies PartialTranslation<typeof source>;

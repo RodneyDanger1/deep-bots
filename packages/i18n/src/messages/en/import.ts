@@ -140,4 +140,11 @@ export const messages = defineMessages("import", {
   "import.hermes.reason.gateway": "Connect these again in OpenBot. The routines keep their text.",
   "import.hermes.reason.secrets": "Not copied. Enter each key again in OpenBot when a tool needs it.",
   "import.hermes.reason.history": "Chat history stays in Hermes. The memories keep what it learned.",
+  "import.disclosure.chooseAfter": "After the import, choose the model and effort for each agent.",
+  "import.disclosure.access":
+    "An import cannot set workspace access or Computer Use. Imported agents start on the defaults of this computer.",
+  "import.disclosure.skills":
+    "A file imports only the skills it carries. The DeepSeek Bots pack carries none: its six skill packs install separately.",
+  "import.disclosure.routines":
+    "Routines import in the state the file gives them. The DeepSeek Bots pack imports every routine inactive; turn one on when you want it to run.",
 });

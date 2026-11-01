@@ -137,4 +137,9 @@ export const messages = {
   "composer.newChat.action": "Yeni sohbet",
   "composer.context.compact": "Şimdi sıkıştır",
   "composer.context.compactFailed": "Bağlam sıkıştırılamadı. Tekrar deneyin.",
+  "composer.context.notReported": "Sağlayıcı bağlamı bildirmiyor",
+  "composer.model.context": "{tokens} bağlam",
+  "composer.model.maxOutput": "{tokens} en fazla çıktı",
+  "composer.model.imageInput": "Görüntü girişi",
+  "composer.model.textOnly": "Yalnızca metin",
 } as const satisfies PartialTranslation<typeof source>;

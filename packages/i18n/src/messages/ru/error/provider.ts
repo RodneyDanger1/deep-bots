@@ -273,6 +273,18 @@ export const messages = {
     "{provider} отклонил сохранённый ключ API. Замените или удалите ключ в настройках, затем повторите попытку.",
   "error.provider.keyProviderNoBalance":
     "На аккаунте {provider} для сохранённого ключа API нет средств. Пополните баланс аккаунта, затем повторите попытку.",
+  "error.provider.keyProviderRateLimited": "{provider} ограничивает частоту запросов. Повторите попытку чуть позже.",
+  "error.provider.keyProviderOverloaded": "{provider} перегружен и не смог ответить. Повторите попытку чуть позже.",
+  "error.provider.keyProviderInvalidParameters":
+    "{provider} отклонил параметры запроса. Проверьте модель и настройки, затем повторите попытку.",
+  "error.provider.keyProviderServerError":
+    "У {provider} произошла ошибка сервера, ответа нет. Повторите попытку чуть позже.",
+  "error.provider.keyProviderReasoningReplay":
+    "{provider} отклонил рассуждение предыдущего хода. Начните новый чат и повторите попытку.",
+  "error.provider.contextWindowExceeded":
+    "Сообщение слишком велико для контекстного окна этой модели. Сократите его или выберите модель с большим окном.",
+  "error.provider.visionUnsupported":
+    "{model} не умеет читать изображения. Выберите модель, которая умеет читать изображения, или отправьте только текст.",
   "error.provider.messageTooLarge": "OpenBot остановил {provider}, потому что он отправил сообщение больше {limit} МБ.",
   "error.provider.customAgentIdInvalid":
     "ID агента должен состоять из строчных букв, цифр или `-` и не может совпадать с ID встроенного провайдера.",

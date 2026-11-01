@@ -34,6 +34,9 @@ export const messages = {
   "provider.status.unavailable": "不可用",
   "provider.status.checking": "检查中",
   "provider.status.off": "已关闭",
+  "provider.piCli.notDownloaded": "{name} 在 Pi CLI 中运行，但 Pi CLI 尚未下载。",
+  "provider.piCli.downloadFailed": "DeepSeek Bots 无法下载 Pi CLI。请重试。",
+  "provider.piCli.cancelDownloadFailed": "DeepSeek Bots 无法取消 Pi CLI 下载。请重试。",
   "provider.gemini.hostSignIn":
     "要连接 Gemini，请在主机上打开 OpenBot，然后在“服务器设置 > 服务商”中选择“连接”。Google 登录需要该主机上有浏览器，不支持远程登录。",
 

@@ -45,7 +45,7 @@ import type { AgentMemories } from "./agent-memories";
 import { answerFilePaths } from "./answer-file-paths";
 import type { AttentionBrowserHost, AttentionRegistry } from "./attention-registry";
 import type { BrowserUploadTarget } from "./browser-uploads";
-import { type ContextCompaction, compactsOnRequest } from "./context-compaction";
+import { type ContextCompaction, compactsOnRequest, contextCompactionThreshold } from "./context-compaction";
 import type { ConversationRuntime } from "./conversation-runtime";
 import type { DeltaBuffer } from "./delta-buffer";
 import type { FailureContext, FailureSignal } from "./failure-signal";
@@ -729,6 +729,9 @@ export class TurnLifecycle {
         );
         return;
       }
+      // `openbot/usage` is the method the Pi client already sends with its cost counters; its additive
+      // `tokenUsage` field carries the context window, so a Pi provider arms the budget there too.
+      case "openbot/usage":
       case "thread/tokenUsage/updated": {
         if (!threadId || !agentId) return;
         if (this.#conversation.loadedClientFor(threadId) !== source) return;
@@ -741,7 +744,9 @@ export class TurnLifecycle {
             last.totalTokens,
             usage.modelContextWindow,
             source.contextCompaction === "native",
-            compactsOnRequest(source.contextCompaction) ? 0.8 : null,
+            compactsOnRequest(source.contextCompaction)
+              ? contextCompactionThreshold(usage.modelContextWindow, getString(params, "model"))
+              : null,
             usage.estimated === true,
             isAgentContextCategories(usage.categories) ? usage.categories : undefined,
           );

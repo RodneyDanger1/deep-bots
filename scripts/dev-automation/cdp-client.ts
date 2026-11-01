@@ -312,14 +312,18 @@ export async function matchPages<T extends { url: () => string }>(
 }
 
 export interface OpenDevBrowserOptions {
+  // The renderer port the registry published for the instance that owns this
+  // debugging port. Null when nothing published it, so only the process check
+  // can identify the browser.
+  expectedRendererPort?: number | null;
   // The pid of the live registry record that owns the port, if any. An Electron
   // browser with an app window that has the preload bridge proves itself without
   // further checks; a page in another Chromium can define `window.openbot`, but
   // that browser does not report `Electron/`. The `OpenBot/` token cannot prove
   // it: the embedded browser removes both product tokens for site compatibility.
-  // A browser without the Electron token must prove its process descends from
-  // this pid, because liveness alone cannot tell a restarted instance from a
-  // squatter.
+  // A browser without the Electron token must prove either that its process
+  // descends from this pid, or that the window it serves is the recorded
+  // instance's renderer carrying the preload bridge.
   ownerPid?: number | null | undefined;
 }
 
@@ -340,17 +344,34 @@ export async function openDevBrowser(
     );
   }
   const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
-  if (!described.electron || (await findRendererPages(devBrowserPages(browser))).length === 0) {
+  const expectedRendererPort = options.expectedRendererPort ?? null;
+  const appPages = await findRendererPages(devBrowserPages(browser), expectedRendererPort);
+  if (!described.electron || appPages.length === 0) {
     // Closing a browser obtained through `connectOverCDP` closes the WebSocket
     // transport only, never the app, so a refusal below leaves nothing behind.
     const ownerPid = options.ownerPid ?? null;
-    if (ownerPid === null || !(await verifyBrowserOwnership(browser, ownerPid))) {
+    const owned = ownerPid !== null && (await verifyBrowserOwnership(browser, ownerPid));
+    if (owned) {
+      logger.info(`Port :${port} belongs to the recorded instance process.`);
+    } else if (!described.electron && appPages.length > 0 && expectedRendererPort !== null) {
+      // This build reports a plain `Chrome/` User-Agent, so the product token
+      // cannot identify it and the process walk can fail for a reason that has
+      // nothing to do with the app (a slow `Get-CimInstance`, for one). The
+      // app window is still the identity check a mutation is gated on: the
+      // preload bridge is `contextBridge`-exposed, so only a window started by
+      // OpenBot's main process has it, and this one is served on the renderer
+      // port the record published beside this debugging port. A tab in any
+      // other Chromium answers `undefined`.
+      logger.info(
+        `Port :${port} serves the recorded instance's renderer :${expectedRendererPort}, ` +
+          `and its window carries the preload bridge.`,
+      );
+    } else {
       await browser.close();
       throw new ForeignBrowserError(
         `Port ${port} does not belong to OpenBot. Pass --port=<OPENBOT_DEV_REMOTE_DEBUGGING_PORT> of the instance you mean to drive.`,
       );
     }
-    logger.info(`Port :${port} belongs to the recorded instance process.`);
   }
   const targets = described.targets;
   logger.info(`CDP targets on :${port}`, targets || "(no pages yet)");
@@ -366,7 +387,10 @@ export async function connectToDevApp(
   logger: Logger,
   options: ConnectOptions = {},
 ): Promise<AutomationSession> {
-  const browser = await openDevBrowser(port, logger, { ownerPid: options.ownerPid });
+  const browser = await openDevBrowser(port, logger, {
+    ownerPid: options.ownerPid,
+    expectedRendererPort: options.expectedRendererPort,
+  });
   const expectedRendererPort = options.expectedRendererPort ?? null;
   const selector = options.pageSelector ?? null;
   const pages = devBrowserPages(browser);

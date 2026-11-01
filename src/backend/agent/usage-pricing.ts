@@ -9,6 +9,7 @@ const OPENAI = "https://developers.openai.com/api/docs/pricing";
 const CLAUDE = "https://platform.claude.com/docs/en/about-claude/pricing";
 const GROK = "https://docs.x.ai/developers/pricing";
 const GEMINI = "https://ai.google.dev/gemini-api/docs/pricing";
+const DEEPSEEK = "https://api-docs.deepseek.com/quick_start/pricing";
 interface Rates {
   input: number;
   cached: number;
@@ -25,6 +26,14 @@ interface Price {
   long?: Rates & { from: number };
   /** From this UTC date (`YYYY-MM-DD`), these rates replace `short`. */
   change?: { on: string; short: Rates };
+  /** The rate multiplier outside every peak window. Absent: a model has one rate at all hours. */
+  offPeak?: { multiplier: number };
+  /**
+   * The UTC windows that bill at the peak rates, as half-open `[from, to)` minutes. `days` uses the
+   * ISO weekday, 1 (Monday) to 7 (Sunday); `from` and `to` are `HH:MM` in UTC. Absent: always peak.
+   * The windows are the model's published local-time windows, so the caller must not shift them.
+   */
+  peakWindowsUtc?: readonly { days: number[]; from: string; to: string }[];
 }
 // OpenAI: "Long context: >272K input tokens". Codex sets no cache lifetime, so a write is the
 // default 30-minute write. GPT-5.5 has no cache-write charge: a write bills as input.
@@ -50,6 +59,23 @@ const antigravityClaude = (input: number, cached: number, output: number): Price
   source: CLAUDE,
   verified: ANTIGRAVITY_VERIFIED,
   short: { input, cached, output },
+});
+// DeepSeek, verified 2026-11-01: the two public models list peak and off-peak rates, and off-peak is
+// exactly half of peak. Peak is 01:00–04:00 and 06:00–10:00 UTC, Monday to Friday; every other hour
+// is off-peak. DeepSeek also excludes Chinese public holidays, which this table does not model, so a
+// DeepSeek cost is an estimate and never a bill. DeepSeek reports no separate cache-write line item,
+// and its `cache_creation` is 0, so a write bills as a cache-miss input.
+const DEEPSEEK_VERIFIED = "2026-11-01";
+const DEEPSEEK_PEAK_WINDOWS: readonly { days: number[]; from: string; to: string }[] = [
+  { days: [1, 2, 3, 4, 5], from: "01:00", to: "04:00" },
+  { days: [1, 2, 3, 4, 5], from: "06:00", to: "10:00" },
+];
+const deepseek = (input: number, cached: number, output: number): Price => ({
+  source: DEEPSEEK,
+  verified: DEEPSEEK_VERIFIED,
+  short: { input, cached, cacheWrite: input, output },
+  offPeak: { multiplier: 0.5 },
+  peakWindowsUtc: DEEPSEEK_PEAK_WINDOWS,
 });
 const PRICES: Readonly<Record<string, Price>> = {
   "codex:gpt-6-astra": {
@@ -137,11 +163,53 @@ const PRICES: Readonly<Record<string, Price>> = {
   },
   "antigravity:claude-opus-5-5": antigravityClaude(4, 0.2, 20),
   "antigravity:claude-sonnet-5-5": antigravityClaude(2, 0.1, 10),
+  // The peak rates are `short`; `offPeak` halves them outside the published windows.
+  "deepseek:deepseek-flash": deepseek(0.3, 0.006, 1.2),
+  "deepseek:deepseek-v4-pro": deepseek(1.32, 0.044, 3.96),
 };
 
 function priceOf(provider: string, model: string): Price | undefined {
   // Claude Code names the 1M context window `[1m]`. It is priced at the model's standard rates.
   return PRICES[`${provider}:${provider === "claude" ? model.replace(/\[1m\]$/, "") : model}`];
+}
+
+/** The minute of day and ISO weekday (1 = Monday) of a UTC instant, or null when it is unreadable. */
+function utcClock(occurredAt: string): { minutes: number; weekday: number } | null {
+  const instant = new Date(occurredAt);
+  if (Number.isNaN(instant.getTime())) return null;
+  const weekday = instant.getUTCDay() === 0 ? 7 : instant.getUTCDay();
+  return { minutes: instant.getUTCHours() * 60 + instant.getUTCMinutes(), weekday };
+}
+
+/** `HH:MM` as minutes after midnight. The windows are constants of this table. */
+function minuteOfDay(value: string): number {
+  const [hours, minutes] = value.split(":");
+  return Number(hours) * 60 + Number(minutes);
+}
+
+/**
+ * Whether the instant bills at the peak rates. A model with no windows always bills at peak, and an
+ * unreadable instant earns no discount: the published peak rate is the standard list price.
+ */
+function isPeakRate(price: Price, occurredAt: string): boolean {
+  const windows = price.peakWindowsUtc;
+  if (!windows || windows.length === 0) return true;
+  const clock = utcClock(occurredAt);
+  if (!clock) return true;
+  return windows.some(({ days, from, to }) => {
+    if (!days.includes(clock.weekday)) return false;
+    return clock.minutes >= minuteOfDay(from) && clock.minutes < minuteOfDay(to);
+  });
+}
+
+/** Applies a rate multiplier to every rate that is present, so a missing cache-write rate stays missing. */
+function scaleRates(rates: Rates, multiplier: number): Rates {
+  return {
+    input: rates.input * multiplier,
+    cached: rates.cached * multiplier,
+    ...(rates.cacheWrite === undefined ? {} : { cacheWrite: rates.cacheWrite * multiplier }),
+    output: rates.output * multiplier,
+  };
 }
 
 /** The standard input rate per million tokens, or null for a model with no known price. */
@@ -184,7 +252,9 @@ export function estimateUsageCost(
         ? "long"
         : null;
   const changed = price.change && occurredAt >= price.change.on ? price.change : null;
-  const rates = context === "short" ? (changed?.short ?? price.short) : context === "long" ? long : null;
+  const standard = context === "short" ? (changed?.short ?? price.short) : context === "long" ? long : null;
+  const peak = isPeakRate(price, occurredAt);
+  const rates = standard && !peak && price.offPeak ? scaleRates(standard, price.offPeak.multiplier) : standard;
   if (!rates || (tokens.cacheCreation !== 0 && rates.cacheWrite === undefined)) return { cost: null, basis: null };
   return {
     cost:
@@ -197,6 +267,9 @@ export function estimateUsageCost(
       effectiveDate: changed?.on ?? price.verified ?? EFFECTIVE_DATE,
       model,
       context,
+      // `peak` is the rate band actually billed, and DeepSeek's Chinese public holidays are not modelled.
+      peak: peak ? "peak" : "off-peak",
+      holidays: "not modelled",
       input: rates.input,
       cached: rates.cached,
       ...(rates.cacheWrite === undefined ? {} : { cacheWrite: rates.cacheWrite }),

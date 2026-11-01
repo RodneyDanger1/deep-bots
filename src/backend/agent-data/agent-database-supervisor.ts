@@ -16,6 +16,12 @@ export interface AgentDatabaseSupervisorOptions {
   queueWaitMs?: number;
   /** Reports how long the host took to answer one statement, or to be ended for it. */
   onStatementSettled?: (durationMs: number) => void;
+  /**
+   * Reports every host start, death, statement timeout and dispatch. The app writes one line each,
+   * so a database host that died and was replaced is visible instead of only one agent's sentence.
+   * The callback runs on the statement path and must not throw.
+   */
+  onStatus?: (status: AgentDatabaseHostStatus) => void;
 }
 
 /** The answer to one statement. A failure is a value, never a rejection: every one of these is a
@@ -23,6 +29,42 @@ export interface AgentDatabaseSupervisorOptions {
 export type AgentDatabaseOutcome =
   | { ok: true; result: AgentDatabaseRows }
   | { ok: false; failure: AgentDatabaseFailure };
+
+export type AgentDatabaseHostEventKind =
+  | "host-started"
+  | "host-exited"
+  | "statement-timeout"
+  | "statement-dispatched"
+  | "disposed";
+
+/** One change in the life of the single host, as the supervisor saw it. */
+export interface AgentDatabaseHostEvent {
+  kind: AgentDatabaseHostEventKind;
+  /** `Date.now()`, so the main log can be read beside the other lines. */
+  at: number;
+  /** Which host the change is about. It rises by one each time a host is discarded. */
+  generation: number;
+  /** Queued plus in-flight statements after the change. */
+  pending: number;
+}
+
+/**
+ * A read-only answer to "is there a database host, how many died, and did the queued work go on?".
+ * `hostExits` and `statementTimeouts` are separate because the first is a host that ended by itself
+ * and the second is a host this supervisor ended for one statement. `redispatches` counts the
+ * statements that were sent after such an end, which is the re-dispatch path itself.
+ */
+export interface AgentDatabaseHostStatus {
+  readonly host: "absent" | "running";
+  readonly generation: number;
+  readonly hostStarts: number;
+  readonly hostExits: number;
+  readonly statementTimeouts: number;
+  readonly dispatched: number;
+  readonly redispatches: number;
+  readonly pending: number;
+  readonly lastEvent: AgentDatabaseHostEvent | null;
+}
 
 interface PendingRequest {
   request: AgentDatabaseRequest;
@@ -51,7 +93,9 @@ export class AgentDatabaseSupervisor {
   readonly #statementDeadlineMs: number;
   readonly #queueWaitMs: number;
   readonly #onStatementSettled: ((durationMs: number) => void) | undefined;
+  readonly #onStatus: ((status: AgentDatabaseHostStatus) => void) | undefined;
   readonly #queue: PendingRequest[] = [];
+  readonly #listeners = new Set<(status: AgentDatabaseHostStatus) => void>();
 
   #host: AgentDatabaseHostProcess | null = null;
   #inFlight: PendingRequest | null = null;
@@ -61,12 +105,21 @@ export class AgentDatabaseSupervisor {
   #generation = 0;
   #nextId = 1;
   #disposed = false;
+  #hostStarts = 0;
+  #hostExits = 0;
+  #statementTimeouts = 0;
+  #dispatched = 0;
+  #redispatches = 0;
+  /** True between a host's death and the next statement, so the next dispatch is a re-dispatch. */
+  #awaitingRedispatch = false;
+  #lastEvent: AgentDatabaseHostEvent | null = null;
 
   constructor(options: AgentDatabaseSupervisorOptions) {
     this.#spawnHost = options.spawnHost;
     this.#statementDeadlineMs = options.statementDeadlineMs ?? AGENT_DATABASE_LIMITS.statementDeadlineMs;
     this.#queueWaitMs = options.queueWaitMs ?? AGENT_DATABASE_LIMITS.queueWaitMs;
     this.#onStatementSettled = options.onStatementSettled;
+    this.#onStatus = options.onStatus;
   }
 
   send(request: AgentDatabaseRequestInput): Effect.Effect<AgentDatabaseOutcome> {
@@ -94,6 +147,7 @@ export class AgentDatabaseSupervisor {
   }
 
   dispose(): void {
+    if (this.#disposed) return;
     this.#disposed = true;
     this.#clearDeadline();
     const pending = this.#inFlight;
@@ -103,6 +157,32 @@ export class AgentDatabaseSupervisor {
     this.#generation += 1;
     this.#host?.kill();
     this.#host = null;
+    this.#emit("disposed");
+    this.#listeners.clear();
+  }
+
+  /**
+   * The current reading. It is a copy: a caller, a diagnostics export or a log line cannot change
+   * the counters. A test asserts on this instead of on private state.
+   */
+  status(): AgentDatabaseHostStatus {
+    return {
+      host: this.#host === null ? "absent" : "running",
+      generation: this.#generation,
+      hostStarts: this.#hostStarts,
+      hostExits: this.#hostExits,
+      statementTimeouts: this.#statementTimeouts,
+      dispatched: this.#dispatched,
+      redispatches: this.#redispatches,
+      pending: this.#pending(),
+      lastEvent: this.#lastEvent,
+    };
+  }
+
+  /** Called with every change. The return removes the listener. */
+  subscribe(listener: (status: AgentDatabaseHostStatus) => void): () => void {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
   }
 
   #pump(): void {
@@ -118,10 +198,16 @@ export class AgentDatabaseSupervisor {
     const host = this.#ensureHost();
     this.#inFlight = next;
     const generation = this.#generation;
-    this.#deadline = setTimeout(() => this.#discardHost(generation, STOPPED_MESSAGE), this.#statementDeadlineMs);
+    this.#deadline = setTimeout(() => this.#discardHost(generation, STOPPED_MESSAGE, "timeout"), this.#statementDeadlineMs);
     this.#deadline.unref();
     this.#sentAt = performance.now();
     host.send(next.request);
+    this.#dispatched += 1;
+    if (this.#awaitingRedispatch) {
+      this.#redispatches += 1;
+      this.#awaitingRedispatch = false;
+    }
+    this.#emit("statement-dispatched");
   }
 
   #ensureHost(): AgentDatabaseHostProcess {
@@ -129,8 +215,12 @@ export class AgentDatabaseSupervisor {
     const host = this.#spawnHost();
     const generation = this.#generation;
     host.onResponse((response) => this.#receive(response, generation));
-    host.onExit(() => this.#discardHost(generation, "The database process stopped unexpectedly. Try the call again."));
+    host.onExit(() =>
+      this.#discardHost(generation, "The database process stopped unexpectedly. Try the call again.", "exit"),
+    );
     this.#host = host;
+    this.#hostStarts += 1;
+    this.#emit("host-started");
     return host;
   }
 
@@ -149,7 +239,7 @@ export class AgentDatabaseSupervisor {
    * The statement that was running is failed and its host is ended. Everything still queued was
    * never handed to that host, so it is dispatched to a fresh one rather than made collateral.
    */
-  #discardHost(generation: number, message: string): void {
+  #discardHost(generation: number, message: string, cause: "exit" | "timeout"): void {
     if (generation !== this.#generation || this.#disposed) return;
     this.#clearDeadline();
     this.#generation += 1;
@@ -162,7 +252,34 @@ export class AgentDatabaseSupervisor {
       pending.settle(failed("internal", message));
       this.#reportSettled();
     }
+    // The event is emitted after the in-flight statement settled, so its count is the work that
+    // still waits. The next `#pump` sends that work to a fresh host and records a re-dispatch.
+    this.#awaitingRedispatch = this.#queue.length > 0;
+    if (cause === "timeout") {
+      this.#statementTimeouts += 1;
+      this.#emit("statement-timeout");
+    } else {
+      this.#hostExits += 1;
+      this.#emit("host-exited");
+    }
     this.#pump();
+  }
+
+  #pending(): number {
+    return this.#queue.length + (this.#inFlight === null ? 0 : 1);
+  }
+
+  #emit(kind: AgentDatabaseHostEventKind): void {
+    const event: AgentDatabaseHostEvent = {
+      kind,
+      at: Date.now(),
+      generation: this.#generation,
+      pending: this.#pending(),
+    };
+    this.#lastEvent = event;
+    const status = this.status();
+    this.#onStatus?.(status);
+    for (const listener of this.#listeners) listener(status);
   }
 
   #reportSettled(): void {

@@ -139,4 +139,8 @@ export const messages = {
   "import.hermes.reason.gateway": "请在 OpenBot 中重新连接这些消息平台。自动化任务会保留原有文本。",
   "import.hermes.reason.secrets": "不会复制。工具需要时，请在 OpenBot 中重新输入每个密钥。",
   "import.hermes.reason.history": "对话记录会留在 Hermes 中。记忆会保留它学到的内容。",
+  "import.disclosure.chooseAfter": "导入后，为每个助手选择模型和强度。",
+  "import.disclosure.access": "导入无法设置工作区访问权限和 Computer Use。导入的助手使用该计算机的默认值启动。",
+  "import.disclosure.skills": "文件只导入它包含的技能。DeepSeek Bots 包不含任何技能：六个技能包需单独安装。",
+  "import.disclosure.routines": "自动化任务按文件指定的状态导入。DeepSeek Bots 包中的所有自动化任务都以停用状态导入；需要运行时再开启。",
 } as const satisfies PartialTranslation<typeof source>;

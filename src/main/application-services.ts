@@ -1522,13 +1522,17 @@ export async function createApplicationServices({
   );
   // Read by the resource monitor, which starts after the analytics that needs the services.
   const statementTimings = new StatementTimings();
-  const tables = new AgentTables({
-    sharedRoot: store.sharedRoot,
-    supervisor: new AgentDatabaseSupervisor({
-      spawnHost: spawnAgentDatabaseHost,
-      onStatementSettled: (durationMs) => statementTimings.record(durationMs),
-    }),
+  /*
+   * The host is a separate killable process. The status line is the only place its replacement is
+   * visible: the agent whose statement was running reads one sentence, and the queued work goes on
+   * in a fresh host that nothing else records. One structured line per change, no payload.
+   */
+  const databaseSupervisor = new AgentDatabaseSupervisor({
+    spawnHost: spawnAgentDatabaseHost,
+    onStatementSettled: (durationMs) => statementTimings.record(durationMs),
+    onStatus: (status) => logger.info("Shared database host status:", toLogValue(status)),
   });
+  const tables = new AgentTables({ sharedRoot: store.sharedRoot, supervisor: databaseSupervisor });
   // Looked up again on demand, because a user may install the driver while OpenBot runs, and the
   // panel's "Check again" has to see it.
   const resolveCuaDriverExecutable = () => {

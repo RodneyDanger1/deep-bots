@@ -82,6 +82,7 @@ export const messages = {
   "error.agent.selectedGone": "選択したエージェントはもう存在しません。",
   "error.agent.profileEndpointsChanged": "生成中にカスタムエンドポイントが変更されました。もう一度お試しください。",
   "error.agent.profileInvalid": "プロバイダーが無効なプロフィールを返しました。指示を修正してみてください。",
+  "error.agent.profileBlank": "プロバイダーは空のプロフィールを返しました。もう一度お試しいただくか、別のモデルをお試しください。",
   "error.agent.profileSectionUnavailable":
     "生成されたセクションを使用できません。もう一度試すか、セクションを手動で選択してください。",
   "error.agent.profileTimedOut": "プロフィールの生成がタイムアウトしました。もう一度お試しください。",

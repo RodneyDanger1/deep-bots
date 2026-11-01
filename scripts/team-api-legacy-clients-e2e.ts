@@ -610,6 +610,40 @@ try {
     return { read };
   });
 
+  await step("v8 decoder: a model list drops the local metadata and keeps the released keys", async () => {
+    const released = decodeTeamProtocolV8HttpResponse(
+      "GET",
+      "/v1/agents/models",
+      200,
+      fixture("v8/host-models-response.json"),
+    );
+    assert.ok(Array.isArray(released), "The v8 model fixture is not a list.");
+    const withLocalMetadata = released.map((item) => ({
+      ...record(item, "released model"),
+      contextWindow: 1_048_576,
+      maxOutputTokens: 131_072,
+      inputModalities: ["text", "image"],
+      fastServiceTier: "priority",
+    }));
+    const decoded = decodeTeamProtocolV8HttpResponse("GET", "/v1/agents/models", 200, withLocalMetadata);
+    assert.ok(Array.isArray(decoded), "The decoded v8 model list is not a list.");
+    const releasedKeys = [
+      "provider",
+      "id",
+      "name",
+      "description",
+      "defaultReasoningEffort",
+      "supportedReasoningEfforts",
+    ];
+    for (const item of decoded) {
+      const row = record(item, "decoded model");
+      for (const key of ["contextWindow", "maxOutputTokens", "inputModalities", "fastServiceTier"])
+        assert.ok(!Object.hasOwn(row, key), `A local field crossed the v8 wire: ${key}.`);
+      assert.deepEqual(Object.keys(row), releasedKeys, "The v8 model key set changed.");
+    }
+    return { models: decoded.length };
+  });
+
   await step("v9 decoder: reads the v9 fixtures; the v8 decoder refuses more than 128 capabilities", async () => {
     const client = fixture("v9/client-capabilities.json");
     assert.ok(Array.isArray(client), "v9/client-capabilities.json is not a list.");

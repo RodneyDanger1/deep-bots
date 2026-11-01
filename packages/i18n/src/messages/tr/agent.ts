@@ -76,4 +76,10 @@ export const messages = {
   "agent.color.indigo": "Çivit mavisi",
   "agent.color.violet": "Menekşe",
   "agent.color.magenta": "Eflatun",
+  "agent.error.providerAuth": "Sağlayıcı API anahtarını reddetti. Anahtarı Ayarlar'da güncelleyip tekrar deneyin.",
+  "agent.error.providerBilling": "Sağlayıcı hesabında bakiye yok. Sağlayıcı hesabına bakiye ekleyip tekrar deneyin.",
+  "agent.error.providerRateLimit": "Sağlayıcı istek sınırına ulaştı. Birkaç dakika bekleyip tekrar deneyin.",
+  "agent.error.providerUnavailable": "Sağlayıcı kendi tarafında başarısız oldu. Birkaç dakika sonra tekrar deneyin.",
+  "agent.error.providerRequest": "Sağlayıcı isteği reddetti. Başka bir model seçip tekrar deneyin.",
+  "agent.error.providerUnreadable": "Sağlayıcı, OpenBot'un gösteremeyeceği bir hata gönderdi. Tekrar deneyin veya sağlayıcı hesabını kontrol edin.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -32,6 +32,7 @@ import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from
 import { ProviderSignInDialogs } from "../../components/ProviderSignInDialogs";
 import type { ProviderConnectionApi } from "../../components/provider-connection-api";
 import { createCustomProviderHostState } from "../custom-providers/custom-provider-host-state";
+import { piCliActionProvider, piCliRuntime } from "../settings/provider-pi-cli";
 import { FREE_PROVIDER, onboardingProviderRows } from "./onboarding-provider-rows";
 import { fallbackProviderState } from "./onboarding-provider-state";
 
@@ -208,10 +209,27 @@ export function createSetupProviders(
     ).map((provider) => {
       const status = props.agentStatus.providers?.find((candidate) => candidate.id === provider.id);
       const runtime = props.providerRuntimeStatuses?.[provider.id];
+      // A CLI the user installed runs the provider whatever the managed runtime holds, so the row
+      // reads ready on the version the provider reports. Settings applies the same rule.
+      const managedRuntime: ProviderRuntimeStatus | undefined =
+        runtime?.phase === "not-downloaded" && (status?.state === "available" || status?.state === "sign-in-required")
+          ? { ...runtime, phase: "ready", version: status.version }
+          : runtime;
+      // A key-only provider has no CLI of its own: it runs in the Pi CLI, whose runtime OpenBot
+      // downloads, and whose status this row would otherwise not show at all.
+      const piRuntime = managedRuntime
+        ? undefined
+        : piCliRuntime(provider.id, props.providerRuntimeStatuses, status?.cliSource);
       const descriptionKey = provider.description ? PROVIDER_DESCRIPTION_KEYS[provider.description] : undefined;
       return {
         ...provider,
-        description: descriptionKey ? t(descriptionKey) : provider.description,
+        // The runtime that the row offers to download is not this provider's own, so the line under
+        // its name says which CLI it installs.
+        description: piRuntime
+          ? t("provider.piCli.notDownloaded", { name: provider.name })
+          : descriptionKey
+            ? t(descriptionKey)
+            : provider.description,
         state: status?.state ?? fallbackProviderState(props.agentStatus),
         message: status?.message,
         email: status?.email,
@@ -226,10 +244,7 @@ export function createSetupProviders(
           provider.id === "opencode"
             ? { title: t("onboarding.provider.tryFree"), detail: t("onboarding.provider.noSignIn") }
             : null,
-        runtimeStatus:
-          runtime?.phase === "not-downloaded" && (status?.state === "available" || status?.state === "sign-in-required")
-            ? { ...runtime, phase: "ready", version: status.version }
-            : runtime,
+        runtimeStatus: managedRuntime ?? piRuntime,
       };
     }),
   );
@@ -520,27 +535,41 @@ export function createSetupProviders(
   /** Resolves `false` when the request failed; the error then says why. */
   async function downloadProvider(provider: AgentProviderId): Promise<boolean> {
     if (!props.onDownloadProvider) return true;
+    // A key-only provider runs in the Pi CLI, so the download installs that runtime. The error names
+    // the CLI that the download truly installs, not the provider whose row started it.
+    const target = piCliActionProvider(provider);
     keepProviderRows();
     setError("");
     setProviderErrors((current) => ({ ...current, [provider]: undefined }));
     setProviderSelectedByUser(true);
     setSelectedProvider(provider);
     try {
-      await props.onDownloadProvider(provider);
+      await props.onDownloadProvider(target);
       return true;
     } catch (cause) {
-      setError(t("onboarding.error.download", { provider: providerName(provider) }), cause);
+      setError(
+        target === provider
+          ? t("onboarding.error.download", { provider: providerName(provider) })
+          : t("provider.piCli.downloadFailed"),
+        cause,
+      );
       return false;
     }
   }
 
   async function cancelProviderDownload(provider: AgentProviderId): Promise<void> {
     if (!props.onCancelProviderDownload) return;
+    const target = piCliActionProvider(provider);
     setError("");
     try {
-      await props.onCancelProviderDownload(provider);
+      await props.onCancelProviderDownload(target);
     } catch (cause) {
-      setError(t("onboarding.error.cancelDownload", { provider: providerName(provider) }), cause);
+      setError(
+        target === provider
+          ? t("onboarding.error.cancelDownload", { provider: providerName(provider) })
+          : t("provider.piCli.cancelDownloadFailed"),
+        cause,
+      );
     }
   }
 

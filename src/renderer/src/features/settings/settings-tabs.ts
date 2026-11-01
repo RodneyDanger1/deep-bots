@@ -8,6 +8,7 @@ import {
   Mic,
   MousePointer2,
   PanelTop,
+  Plug,
   Server,
   Settings,
   Smartphone,
@@ -17,6 +18,7 @@ import {
 export type SettingsTab =
   | "general"
   | "agents"
+  | "providers"
   | "notifications"
   | "voice"
   | "dynamic-island"
@@ -83,6 +85,13 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
       { titleKey: "settings.busyMessage.title", descriptionKey: "settings.busyMessage.description" },
       { titleKey: "settings.backgroundProcesses.title", descriptionKey: "settings.backgroundProcesses.description" },
     ],
+  },
+  {
+    value: "providers",
+    titleKey: "settings.tab.providers.title",
+    descriptionKey: "settings.tab.providers.description",
+    icon: Plug,
+    rows: [{ titleKey: "settings.providers.open.title", descriptionKey: "settings.tab.providers.description" }],
   },
   {
     value: "profile",

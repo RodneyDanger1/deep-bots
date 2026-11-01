@@ -1,4 +1,4 @@
-import { parseInviteUrl, selfHostedApiOrigin } from "@openbot/contracts/invite-links";
+import { selfHostedApiOrigin } from "@openbot/contracts/invite-links";
 import { router, Stack } from "expo-router";
 import { Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
@@ -6,7 +6,7 @@ import { View } from "react-native";
 
 import { QrScanner } from "@/features/auth/components/qr-scanner";
 import { useMobileSession } from "@/features/auth/context/mobile-session-context";
-import { rememberIncomingLink } from "@/features/links/model/incoming-links";
+import { classifyScannedLink, rememberIncomingLink } from "@/features/links/model/incoming-links";
 import { StageBackButton } from "@/shared/components/bloub-stage/stage-back-button";
 import { headerTitleFont } from "@/shared/lib/app-font";
 import { useText } from "@/shared/lib/text";
@@ -30,14 +30,19 @@ export function ScanInviteScreen({
       embedded
       pairing={false}
       onScan={async (data) => {
-        try {
-          parseInviteUrl(data, { selfHostedApiOrigin: selfHostedApiOrigin(session?.apiUrl) });
-        } catch {
+        // The add-server sheet scans invitations. A Mobile Connect code read here is a pairing
+        // code for this phone, so it goes to the pairing screen instead of being refused.
+        const link = classifyScannedLink(data, { selfHostedApiOrigin: selfHostedApiOrigin(session?.apiUrl) });
+        if (link.kind === "unsupported") {
           throw new Error(t("mobile.server.scan.notInvitation"));
         }
         // The one-use token stays out of navigation params, as deep links do.
-        const request = rememberIncomingLink({ kind: "invite", url: data });
-        router.dismissTo({ pathname: joinPath, params: { request } });
+        const request = rememberIncomingLink(link);
+        router.dismissTo(
+          link.kind === "pairing"
+            ? { pathname: "/incoming-link", params: { request } }
+            : { pathname: joinPath, params: { request } },
+        );
       }}
       renderOverlay={(camera) =>
         underHeader ? (

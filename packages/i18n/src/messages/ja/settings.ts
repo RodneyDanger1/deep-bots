@@ -594,4 +594,16 @@ export const messages = {
   "settings.transfer.result.signInButton": "{provider} にサインイン",
   "settings.transfer.result.notImported": "インポートされなかった項目",
   "settings.transfer.result.warnings": "確認事項",
+  "settings.providerKey.nextBilling":
+    "プロバイダーのアカウントに残高がありません。プロバイダーのアカウントに入金してください。新しいキーでは解決しません。",
+  "settings.providerKey.nextRateLimit": "プロバイダーが上限に達しています。数分待ってから、もう一度お試しください。",
+  // The Providers tab: the way from the personal settings to the server's provider page.
+  "settings.tab.providers.description":
+    "CLI をダウンロードし、アカウントを接続し、デフォルトのプロバイダーを選択します。",
+  "settings.tab.providers.title": "プロバイダー",
+  "settings.providers.open.title": "プロバイダー設定",
+  "settings.providers.open.description": "{name} で CLI をダウンロードするか、アカウントを接続します。",
+  "settings.providers.open.action": "プロバイダー設定を開く",
+  "settings.providers.noServer": "有効なサーバーがありません。サーバーを開いてプロバイダーを管理してください。",
+  "settings.providers.managedByHost": "{name} のプロバイダーを管理できるのは、所有者または管理者だけです。",
 } as const satisfies PartialTranslation<typeof source>;

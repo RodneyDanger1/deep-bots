@@ -1873,6 +1873,11 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       },
       // A saved endpoint's models are composed here, not stored, so a removal drops them the way a
       // respawned OpenCode would: it lists what its config names and nothing else.
+      //
+      // The list is served as it is, so the optional model facts the picker reads - the context
+      // window, the output cap and the input modalities - reach the preview the way a host sends
+      // them. They are the contract's own optional fields (`AgentModelOption`), carried by
+      // `STORY_MODELS`, so no method here needs a branch for them.
       listModels: async (serverId) =>
         clone([
           ...[...models, ...customProviders.flatMap(mockCustomProviderModels)].filter(

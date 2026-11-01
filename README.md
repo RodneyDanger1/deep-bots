@@ -1,4 +1,9 @@
-# OpenBot
+# DeepSeek Bots
+
+DeepSeek Bots is a DeepSeek-focused build of the local-first OpenBot desktop workspace. It is not
+affiliated with or endorsed by DeepSeek or Synthetify Labs. The upstream name remains in package
+identifiers, saved-data paths and released wire names, because changing them would break existing
+profiles and the frozen Team API contracts.
 
 [![CI](https://github.com/nightly-labs/openbot/actions/workflows/ci.yml/badge.svg)](https://github.com/nightly-labs/openbot/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-PolyForm_Noncommercial_1.0.0-blue.svg)](LICENSE)

@@ -287,6 +287,19 @@ export const messages = {
     "{provider} rechazó la clave de API guardada. Reemplaza o elimina la clave en Ajustes y vuelve a intentarlo.",
   "error.provider.keyProviderNoBalance":
     "La cuenta de {provider} de la clave de API guardada no tiene saldo. Añade saldo a la cuenta y vuelve a intentarlo.",
+  "error.provider.keyProviderRateLimited": "{provider} está limitando las solicitudes. Vuelve a intentarlo en breve.",
+  "error.provider.keyProviderOverloaded":
+    "{provider} está sobrecargado y no pudo responder. Vuelve a intentarlo en breve.",
+  "error.provider.keyProviderInvalidParameters":
+    "{provider} rechazó los parámetros de la solicitud. Revisa el modelo y la configuración, y vuelve a intentarlo.",
+  "error.provider.keyProviderServerError":
+    "{provider} tuvo un error de servidor y no respondió. Vuelve a intentarlo en breve.",
+  "error.provider.keyProviderReasoningReplay":
+    "{provider} rechazó el razonamiento de un turno anterior. Inicia un chat nuevo y vuelve a intentarlo.",
+  "error.provider.contextWindowExceeded":
+    "El mensaje es demasiado grande para la ventana de contexto de este modelo. Acórtalo o elige un modelo con una ventana más grande.",
+  "error.provider.visionUnsupported":
+    "{model} no puede leer imágenes. Elige un modelo que pueda leer imágenes o envía solo texto.",
   "error.provider.messageTooLarge": "OpenBot detuvo {provider} porque envió un mensaje de más de {limit} MB.",
   "error.provider.customAgentIdInvalid":
     "Un ID de agente debe contener letras minúsculas, dígitos o `-`, y no puede ser el ID de un proveedor integrado.",

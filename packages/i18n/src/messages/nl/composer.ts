@@ -136,4 +136,9 @@ export const messages = {
   "composer.newChat.action": "Nieuwe chat",
   "composer.context.compact": "Nu comprimeren",
   "composer.context.compactFailed": "Kan de context niet comprimeren. Probeer het opnieuw.",
+  "composer.context.notReported": "De aanbieder meldt de context niet",
+  "composer.model.context": "{tokens} context",
+  "composer.model.maxOutput": "{tokens} maximale uitvoer",
+  "composer.model.imageInput": "Afbeeldingsinvoer",
+  "composer.model.textOnly": "Alleen tekst",
 } as const satisfies PartialTranslation<typeof source>;

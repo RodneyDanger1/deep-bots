@@ -11,6 +11,7 @@ import type { ProviderPickerOption } from "@openbot/ui/components/ProviderPicker
 import { providerDiagnosticsText } from "@openbot/ui/features/provider-diagnostics/provider-diagnostics";
 import { createMemo } from "solid-js";
 import { useI18n } from "../../../i18n-context";
+import { piCliRuntime } from "../provider-pi-cli";
 
 interface GeneralStoreProps {
   agentStatus?: AgentStatus;
@@ -56,6 +57,29 @@ export function createSettingsGeneralStore(props: GeneralStoreProps) {
     ).map((provider) => {
       const agent = props.agentStatus?.providers?.find((candidate) => candidate.id === provider);
       const runtime = props.providerRuntimeStatuses?.[provider];
+      /*
+       * A CLI the user installed themselves is the one the provider runs, whatever the managed
+       * runtime holds, so the row reads it as ready on the version the provider reports. An
+       * update offered for it is the user's own install being newer-able, not a download.
+       *
+       * Only while that runtime is idle. The provider keeps answering on the user's own CLI for
+       * the whole of an update, so a mask that ignored the phase would report the row as ready
+       * throughout, and hide both the progress the Cancel button reverses and the failure the
+       * Retry button answers.
+       */
+      const managedRuntime: ProviderRuntimeStatus | undefined =
+        runtime &&
+        (runtime.phase === "ready" || runtime.phase === "not-downloaded") &&
+        (agent?.state === "available" || agent?.state === "sign-in-required") &&
+        (agent.cliSource === "system" || (runtime.phase === "not-downloaded" && !runtime.availableVersion))
+          ? { ...runtime, phase: "ready", version: agent.version ?? null }
+          : runtime;
+      // Inception, DeepSeek and OpenRouter run in the Pi CLI, which has an entry of its own in the
+      // runtime snapshot. Without this line their rows show no runtime and so no way to install the
+      // CLI that they need.
+      const piRuntime = managedRuntime
+        ? undefined
+        : piCliRuntime(provider, props.providerRuntimeStatuses, agent?.cliSource);
       // The Gemini status says only whether a saved key serves the turns. A Codex key is a login on
       // this computer, so only this computer offers one. Released hosts do not report a Muse key.
       const keyStatus =
@@ -73,9 +97,13 @@ export function createSettingsGeneralStore(props: GeneralStoreProps) {
       return {
         id: provider,
         name: agentProviderName(provider),
-        description: props.providerHostName
-          ? i18n.t("provider.availableOnHost", { name: props.providerHostName })
-          : i18n.t("provider.availableHere"),
+        // The runtime that this row offers to download is the Pi CLI, not a CLI of the provider
+        // itself, so the line under the name says which CLI it installs.
+        description: piRuntime
+          ? i18n.t("provider.piCli.notDownloaded", { name: agentProviderName(provider) })
+          : props.providerHostName
+            ? i18n.t("provider.availableOnHost", { name: props.providerHostName })
+            : i18n.t("provider.availableHere"),
         state: agent?.state ?? "not-installed",
         message: agent?.message,
         email: agent?.email,
@@ -93,23 +121,7 @@ export function createSettingsGeneralStore(props: GeneralStoreProps) {
           ...account,
           usedBy: props.providerAccountUsers?.[provider]?.[account.id],
         })),
-        /*
-         * A CLI the user installed themselves is the one the provider runs, whatever the managed
-         * runtime holds, so the row reads it as ready on the version the provider reports. An
-         * update offered for it is the user's own install being newer-able, not a download.
-         *
-         * Only while that runtime is idle. The provider keeps answering on the user's own CLI for
-         * the whole of an update, so a mask that ignored the phase would report the row as ready
-         * throughout, and hide both the progress the Cancel button reverses and the failure the
-         * Retry button answers.
-         */
-        runtimeStatus:
-          runtime &&
-          (runtime.phase === "ready" || runtime.phase === "not-downloaded") &&
-          (agent?.state === "available" || agent?.state === "sign-in-required") &&
-          (agent.cliSource === "system" || (runtime.phase === "not-downloaded" && !runtime.availableVersion))
-            ? { ...runtime, phase: "ready", version: agent.version ?? null }
-            : runtime,
+        runtimeStatus: managedRuntime ?? piRuntime,
       };
     }),
   );

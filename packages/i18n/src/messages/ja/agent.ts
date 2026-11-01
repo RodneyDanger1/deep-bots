@@ -75,4 +75,10 @@ export const messages = {
   "agent.color.indigo": "藍",
   "agent.color.violet": "紫",
   "agent.color.magenta": "マゼンタ",
+  "agent.error.providerAuth": "プロバイダーが API キーを拒否しました。設定でキーを更新してから、もう一度お試しください。",
+  "agent.error.providerBilling": "プロバイダーのアカウントに残高がありません。プロバイダーのアカウントに入金してから、もう一度お試しください。",
+  "agent.error.providerRateLimit": "プロバイダーがレート制限に達しています。数分待ってから、もう一度お試しください。",
+  "agent.error.providerUnavailable": "プロバイダー側でエラーが発生しました。数分後にもう一度お試しください。",
+  "agent.error.providerRequest": "プロバイダーがリクエストを拒否しました。別のモデルを選択してから、もう一度お試しください。",
+  "agent.error.providerUnreadable": "プロバイダーから OpenBot が表示できないエラーが送信されました。もう一度お試しになるか、プロバイダーのアカウントを確認してください。",
 } as const satisfies PartialTranslation<typeof source>;

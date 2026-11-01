@@ -297,6 +297,18 @@ export const messages = {
     "{provider} a refusé la clé d’API enregistrée. Remplacez ou supprimez la clé dans les Réglages, puis réessayez.",
   "error.provider.keyProviderNoBalance":
     "Le compte {provider} de la clé d’API enregistrée n’a pas de solde. Ajoutez du crédit au compte, puis réessayez.",
+  "error.provider.keyProviderRateLimited": "{provider} limite le débit des requêtes. Réessayez dans un instant.",
+  "error.provider.keyProviderOverloaded": "{provider} est surchargé et n’a pas pu répondre. Réessayez dans un instant.",
+  "error.provider.keyProviderInvalidParameters":
+    "{provider} a refusé les paramètres de la requête. Vérifiez le modèle et les réglages, puis réessayez.",
+  "error.provider.keyProviderServerError":
+    "{provider} a subi une erreur de serveur et n’a pas répondu. Réessayez dans un instant.",
+  "error.provider.keyProviderReasoningReplay":
+    "{provider} a refusé le raisonnement d’une discussion précédente. Démarrez une nouvelle discussion, puis réessayez.",
+  "error.provider.contextWindowExceeded":
+    "Le message est trop long pour la fenêtre de contexte de ce modèle. Raccourcissez-le ou choisissez un modèle avec une fenêtre plus grande.",
+  "error.provider.visionUnsupported":
+    "{model} ne peut pas lire les images. Choisissez un modèle qui peut lire les images, ou envoyez uniquement du texte.",
   "error.provider.messageTooLarge": "OpenBot a arrêté {provider}, car il a envoyé un message de plus de {limit} Mo.",
   "error.provider.customAgentIdInvalid":
     "Un ID d’agent ne peut contenir que des lettres minuscules, des chiffres ou `-`, et ne peut pas être l’ID d’un fournisseur intégré.",

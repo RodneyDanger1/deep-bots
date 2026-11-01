@@ -752,8 +752,16 @@ export function TraceWaterfall(props: TraceWaterfallProps) {
 
       <dl class="trace-totals">
         <TraceTotal label={t("chat.trace.duration")} value={shownDuration()} format={formatShownDuration} />
-        <Show when={totals().cost}>
-          {(cost) => <TraceTotal label={t("chat.trace.cost")} value={cost()} format={formatShownCost} />}
+        <Show
+          when={totals().cost !== null}
+          fallback={
+            <div class="trace-total">
+              <dt class="trace-total-label">{t("chat.trace.cost")}</dt>
+              <dd class="trace-total-value">{t("usage.unavailable")}</dd>
+            </div>
+          }
+        >
+          <TraceTotal label={t("chat.trace.cost")} value={totals().cost ?? 0} format={formatShownCost} />
         </Show>
         <Show when={totals().tokens}>
           {(tokens) => <TraceTotal label={t("chat.trace.tokens")} value={tokens()} format={format.compact} />}

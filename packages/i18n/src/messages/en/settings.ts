@@ -228,7 +228,7 @@ export const messages = defineMessages("settings", {
   "settings.mobileConnect.qr.permanent": "Permanent code",
   "settings.mobileConnect.qr.connected": "{name} connected",
   "settings.mobileConnect.step.open": "Open OpenBot on your phone.",
-  "settings.mobileConnect.step.scan": "Tap Scan QR code.",
+  "settings.mobileConnect.step.scan": "On the phone's sign-in screen, tap Scan QR code.",
   "settings.mobileConnect.step.point": "Point the camera at this screen.",
   "settings.mobileConnect.code.expired": "Code expired",
   "settings.mobileConnect.code.none": "No active code",
@@ -663,4 +663,15 @@ export const messages = defineMessages("settings", {
   "settings.transfer.result.signInButton": "Sign in to {provider}",
   "settings.transfer.result.notImported": "Not imported",
   "settings.transfer.result.warnings": "Check these",
+  "settings.providerKey.nextBilling":
+    "The provider account has no credit. Add funds in the provider account; a new key does not fix it.",
+  "settings.providerKey.nextRateLimit": "The provider is at its rate limit. Wait a few minutes, then try again.",
+  // The Providers tab: the way from the personal settings to the server's provider page.
+  "settings.tab.providers.description": "Download a CLI, connect an account, and choose the default provider.",
+  "settings.tab.providers.title": "Providers",
+  "settings.providers.open.title": "Provider settings",
+  "settings.providers.open.description": "Download a CLI or connect an account on {name}.",
+  "settings.providers.open.action": "Open provider settings",
+  "settings.providers.noServer": "No server is active. Open a server to manage its providers.",
+  "settings.providers.managedByHost": "Only an owner or admin of {name} can manage its providers.",
 });

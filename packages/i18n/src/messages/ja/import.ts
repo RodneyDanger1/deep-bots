@@ -66,4 +66,8 @@ export const messages = {
   "import.result.channel": "チャンネル",
   "import.result.notImportedTitle": "インポートされなかった項目",
   "import.result.warnings": "移行されなかった項目があります",
+  "import.disclosure.chooseAfter": "インポート後に、各エージェントのモデルとエフォートを選択します。",
+  "import.disclosure.access": "インポートではワークスペースへのアクセスと Computer Use を設定できません。インポートしたエージェントはこのコンピューターの既定値で開始します。",
+  "import.disclosure.skills": "ファイルがインポートするのは、そのファイルに含まれるスキルだけです。DeepSeek Bots パックにはスキルがありません。6 つのスキルパックは別にインストールします。",
+  "import.disclosure.routines": "ルーティンはファイルが指定した状態でインポートされます。DeepSeek Bots パックはすべてのルーティンを無効でインポートします。実行したいときに有効にしてください。",
 } as const satisfies PartialTranslation<typeof source>;

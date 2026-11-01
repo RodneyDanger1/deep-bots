@@ -132,4 +132,9 @@ export const messages = {
   "composer.newChat.action": "新对话",
   "composer.context.compact": "立即压缩",
   "composer.context.compactFailed": "无法压缩上下文，请重试。",
+  "composer.context.notReported": "服务商未报告上下文",
+  "composer.model.context": "上下文 {tokens}",
+  "composer.model.maxOutput": "最大输出 {tokens}",
+  "composer.model.imageInput": "图片输入",
+  "composer.model.textOnly": "仅文本",
 } as const satisfies PartialTranslation<typeof source>;

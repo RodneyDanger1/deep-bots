@@ -75,6 +75,7 @@ export const messages = {
   "error.agent.selectedGone": "Wybrany agent już nie istnieje.",
   "error.agent.profileEndpointsChanged": "Własne endpointy zmieniły się w trakcie generowania. Spróbuj ponownie.",
   "error.agent.profileInvalid": "Dostawca zwrócił nieprawidłowy profil. Spróbuj zmienić prompt.",
+  "error.agent.profileBlank": "Dostawca zwrócił pusty profil. Spróbuj ponownie lub wybierz inny model.",
   "error.agent.profileSectionUnavailable":
     "Wygenerowana sekcja jest niedostępna. Spróbuj ponownie lub wybierz sekcję ręcznie.",
   "error.agent.profileTimedOut": "Przekroczono czas generowania profilu. Spróbuj ponownie.",

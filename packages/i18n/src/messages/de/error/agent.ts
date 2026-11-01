@@ -88,6 +88,8 @@ export const messages = {
     "Die benutzerdefinierten Endpunkte wurden während der Erstellung geändert. Versuche es erneut.",
   "error.agent.profileInvalid":
     "Der Anbieter hat ein ungültiges Profil zurückgegeben. Versuche, deine Anweisung zu ändern.",
+  "error.agent.profileBlank":
+    "Der Anbieter hat ein leeres Profil zurückgegeben. Versuche es erneut oder wähle ein anderes Modell.",
   "error.agent.profileSectionUnavailable":
     "Der erstellte Abschnitt ist nicht verfügbar. Versuche es erneut oder wähle einen Abschnitt manuell.",
   "error.agent.profileTimedOut": "Die Zeit für die Profilerstellung ist abgelaufen. Versuche es erneut.",

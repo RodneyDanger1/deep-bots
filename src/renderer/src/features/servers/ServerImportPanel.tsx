@@ -6,6 +6,7 @@ import type {
   OpenBotDesktopApi,
 } from "@openbot/contracts/ipc";
 import { classifyFailure } from "@openbot/telemetry";
+import { Text } from "@openbot/ui";
 import { AgentImportSources } from "@openbot/ui/features/import/AgentImportSources";
 import {
   type AgentImportPhase,
@@ -301,6 +302,7 @@ export function ServerImportPanel(
   return (
     <Switch>
       <Match when={source() === null}>
+        <ImportDisclosure />
         <AgentImportSources
           transfer={Boolean(props.onOpenTransfer)}
           onHermes={() => setSource("hermes-agent")}
@@ -330,6 +332,7 @@ export function ServerImportPanel(
       <Match when={source()}>
         {(current) => (
           <>
+            <ImportDisclosure />
             {/* The header's `Import` goes back to the sources; a review also has Cancel. */}
             <AgentImportView
               source={current()}
@@ -356,5 +359,33 @@ export function ServerImportPanel(
         )}
       </Match>
     </Switch>
+  );
+}
+
+/**
+ * What an import cannot do, said before the user picks a source or a file, so the facts are readable
+ * before the import starts. An import file has no model, effort, workspace access or Computer Use
+ * field: those are chosen on this computer after the import, and only the user can widen them. The
+ * DeepSeek Bots pack carries no skills - its six skill packs install separately - and it marks every
+ * routine inactive. The finished screen lists every agent and channel that the import skipped, with
+ * the reason it reported.
+ */
+function ImportDisclosure() {
+  const { t } = useText();
+  return (
+    <>
+      <Text as="p" variant="body-sm" tone="muted">
+        {t("import.disclosure.chooseAfter")}
+      </Text>
+      <Text as="p" variant="body-sm" tone="muted">
+        {t("import.disclosure.access")}
+      </Text>
+      <Text as="p" variant="body-sm" tone="muted">
+        {t("import.disclosure.skills")}
+      </Text>
+      <Text as="p" variant="body-sm" tone="muted">
+        {t("import.disclosure.routines")}
+      </Text>
+    </>
   );
 }

@@ -64,4 +64,8 @@ export const messages = {
   "import.result.channel": "Canal",
   "import.result.notImportedTitle": "Não importado",
   "import.result.warnings": "Alguns itens não foram transferidos",
+  "import.disclosure.chooseAfter": "Depois da importação, escolha o modelo e o esforço de cada agente.",
+  "import.disclosure.access": "Uma importação não define o acesso ao espaço de trabalho nem o Uso do computador. Os agentes importados começam com os padrões deste computador.",
+  "import.disclosure.skills": "Um arquivo importa apenas as habilidades que contém. O pacote DeepSeek Bots não contém nenhuma: os seis pacotes de habilidades são instalados separadamente.",
+  "import.disclosure.routines": "As rotinas são importadas no estado que o arquivo indica. O pacote DeepSeek Bots importa todas as rotinas inativas; ative uma quando quiser que ela rode.",
 } as const satisfies PartialTranslation<typeof source>;

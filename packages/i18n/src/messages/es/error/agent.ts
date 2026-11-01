@@ -81,6 +81,7 @@ export const messages = {
   "error.agent.profileEndpointsChanged":
     "Los endpoints personalizados cambiaron durante la generación. Inténtalo de nuevo.",
   "error.agent.profileInvalid": "El proveedor devolvió un perfil no válido. Prueba a modificar tus instrucciones.",
+  "error.agent.profileBlank": "El proveedor devolvió un perfil vacío. Vuelve a intentarlo o prueba con otro modelo.",
   "error.agent.profileSectionUnavailable":
     "La sección generada no está disponible. Inténtalo de nuevo o elige una sección manualmente.",
   "error.agent.profileTimedOut": "Se agotó el tiempo de generación del perfil. Inténtalo de nuevo.",

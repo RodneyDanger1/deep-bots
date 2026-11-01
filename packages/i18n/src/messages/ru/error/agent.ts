@@ -76,6 +76,7 @@ export const messages = {
   "error.agent.selectedGone": "Выбранного агента больше нет.",
   "error.agent.profileEndpointsChanged": "Пользовательские эндпоинты изменились во время создания. Повторите попытку.",
   "error.agent.profileInvalid": "Провайдер вернул некорректный профиль. Попробуйте изменить запрос.",
+  "error.agent.profileBlank": "Провайдер вернул пустой профиль. Повторите попытку или выберите другую модель.",
   "error.agent.profileSectionUnavailable":
     "Созданный раздел недоступен. Повторите попытку или выберите раздел вручную.",
   "error.agent.profileTimedOut": "Время создания профиля истекло. Повторите попытку.",

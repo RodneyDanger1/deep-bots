@@ -65,11 +65,32 @@ const WINDOWS_WRITE_RIGHTS = "0x500D0156";
 // names: names are localized. The path goes through the environment, so
 // PowerShell never parses it. An ACL that cannot be read fails closed, like a
 // foreign one.
+// One PowerShell spawn can be starved by other work on the machine, and a
+// timeout there says nothing about the question being asked - a stop that
+// cannot read the registry ACL after it already signalled the stack would fail
+// with the wrong reason and leave the record behind. Two attempts, each with
+// its own budget, keep a transient stall from deciding that answer.
+function runPowerShell(args: string[], timeoutMs: number, environment: NodeJS.ProcessEnv = process.env): string {
+  let failure: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return execFileSync("powershell.exe", args, {
+        encoding: "utf8",
+        env: environment,
+        timeout: timeoutMs,
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+    } catch (error) {
+      failure = error;
+    }
+  }
+  throw failure;
+}
+
 function assertWindowsOwnerOnlyDirectory(directory: string): void {
   let lines: string[];
   try {
-    lines = execFileSync(
-      "powershell.exe",
+    lines = runPowerShell(
       [
         "-NoProfile",
         "-NonInteractive",
@@ -82,12 +103,8 @@ function assertWindowsOwnerOnlyDirectory(directory: string): void {
           "$_.AccessControlType -eq 'Allow' -and " +
           `([int]$_.FileSystemRights -band ${WINDOWS_WRITE_RIGHTS}) } | ForEach-Object { $_.IdentityReference.Value }`,
       ],
-      {
-        encoding: "utf8",
-        env: { ...process.env, OPENBOT_REGISTRY_DIRECTORY: directory },
-        timeout: 5_000,
-        stdio: ["ignore", "pipe", "ignore"],
-      },
+      15_000,
+      { ...process.env, OPENBOT_REGISTRY_DIRECTORY: directory },
     )
       .trim()
       .split(/\s+/);
@@ -299,4 +316,67 @@ export function isProcessGroupAlive(pid: number, platform: NodeJS.Platform = pro
   } catch (error) {
     return error instanceof Error && "code" in error && error.code === "EPERM";
   }
+}
+
+// The descendants a dead leader left behind, by pid. Windows cannot signal a
+// group, so `dev:stop` can only stop the app it started if it can name the
+// pids, and the recorded leader is gone by the time the Electron behind
+// electron-vite still holds the renderer port. Parent links are what is left:
+// Windows keeps `ParentProcessId` after the parent dies, so the tree below the
+// recorded pid still describes what that pid started.
+//
+// Attribution, not a pattern. A pid is ours only when it descends from the
+// recorded leader *and* started at or after that leader did; a recycled pid's
+// children predate the record when the record is the newer claim, and those
+// stay untouched. `leaderVerified` says the caller has matched this pid to the
+// record by start time, so the tree below it is the tree that leader started
+// even while the leader is still alive. Without that proof the pid may name a
+// stranger now, and only a dead leader can vouch for its own children: a
+// process cannot create one after it exited.
+// `null` is "could not read", which is not the same answer as "nothing is
+// left": a stop command that treats a starved `Get-CimInstance` as an empty
+// process tree leaves a port held and reports success.
+export function attributableDescendantPids(
+  entry: { pid: number; startedAt: number },
+  leaderVerified = false,
+  platform: NodeJS.Platform = process.platform,
+): number[] | null {
+  if (platform !== "win32") return [];
+  if (!leaderVerified && isProcessAlive(entry.pid)) return [];
+  let reported: string;
+  try {
+    reported = runPowerShell(
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "$root = " +
+          String(entry.pid) +
+          "; $queue = [System.Collections.Generic.Queue[int]]::new(); $queue.Enqueue($root); " +
+          "$seen = [System.Collections.Generic.HashSet[int]]::new(); $out = @(); " +
+          "while ($queue.Count -gt 0) { $p = $queue.Dequeue(); " +
+          "if (-not $seen.Add($p)) { continue }; " +
+          "$kids = @(Get-CimInstance Win32_Process -Filter \"ParentProcessId = $p\"); " +
+          "foreach ($k in $kids) { $id = [int]$k.ProcessId; if ($seen.Contains($id)) { continue }; " +
+          "$ms = [int64]($k.CreationDate.ToUniversalTime() - [datetime]'1970-01-01').TotalMilliseconds; " +
+          "$out += \"$id $ms\"; $queue.Enqueue($id) } }; $out -join \"`n\"",
+      ],
+      20_000,
+    ).trim();
+  } catch {
+    // Unreadable: the caller keeps its refusal rather than guessing at pids.
+    return null;
+  }
+  const pids: number[] = [];
+  for (const line of reported.split(/\r?\n/u)) {
+    const match = /^(\d+)\s+(\d+)$/u.exec(line.trim());
+    if (!match) continue;
+    const pid = Number(match[1]);
+    const createdAt = Number(match[2]);
+    if (!Number.isInteger(pid) || pid <= 0) continue;
+    if (!Number.isFinite(createdAt)) continue;
+    if (createdAt + PROCESS_START_GRACE_MS < entry.startedAt) continue;
+    pids.push(pid);
+  }
+  return pids;
 }

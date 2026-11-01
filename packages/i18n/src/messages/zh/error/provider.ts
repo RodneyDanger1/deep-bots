@@ -248,6 +248,13 @@ export const messages = {
   "error.provider.geminiKeyRefused": "Gemini 拒绝了已保存的 API 密钥。请在设置中更换或移除该密钥，然后重新连接。",
   "error.provider.keyProviderRefused": "{provider} 拒绝了已保存的 API 密钥。请在设置中更换或移除该密钥，然后重试。",
   "error.provider.keyProviderNoBalance": "已保存 API 密钥的 {provider} 账户没有余额。请为账户充值，然后重试。",
+  "error.provider.keyProviderRateLimited": "{provider} 正在限制请求频率。请稍后重试。",
+  "error.provider.keyProviderOverloaded": "{provider} 过载，无法回答。请稍后重试。",
+  "error.provider.keyProviderInvalidParameters": "{provider} 拒绝了请求参数。请检查模型和设置，然后重试。",
+  "error.provider.keyProviderServerError": "{provider} 出现服务器错误，没有回答。请稍后重试。",
+  "error.provider.keyProviderReasoningReplay": "{provider} 拒绝了上一轮的推理内容。请新建对话，然后重试。",
+  "error.provider.contextWindowExceeded": "消息超出了该模型的上下文窗口。请缩短消息，或选择上下文窗口更大的模型。",
+  "error.provider.visionUnsupported": "{model} 无法读取图片。请选择能读取图片的模型，或只发送文本。",
   "error.provider.messageTooLarge": "由于 {provider} 发送了大于 {limit} MB 的消息，OpenBot 已将其停止。",
   "error.provider.customAgentIdInvalid": "助手 ID 只能包含小写字母、数字或 `-`，且不能与内置服务商的 ID 相同。",
   "error.provider.customAgentEnvInvalid":

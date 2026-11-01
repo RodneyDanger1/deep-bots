@@ -9,6 +9,7 @@ import type {
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { plainTaskTitle, taskApproval } from "@openbot/team-client/agent-tasks";
+import { Text } from "@openbot/ui";
 import type { AgentMessage, AgentProfile } from "@openbot/ui/data";
 import type { AgentTaskWait } from "@openbot/ui/features/conversation/AgentTasks";
 import type { SendShortcut } from "@openbot/ui/features/conversation/send-shortcut";
@@ -98,6 +99,39 @@ interface TasksViewState {
 function toastError(error: unknown, fallback: AppTextKey): void {
   const { t, errorMessage } = currentText();
   actionToast.error(errorMessage(error, t(fallback)));
+}
+
+/**
+ * What a task does now. It is derived from the task's own state, from a hold that the host reported,
+ * and from the waits that ask the person for something (an approval, a question, a browser
+ * takeover). A progress line is free text from the host, so it never names a stage.
+ */
+type TaskStage = "awaiting-answer" | "awaiting-review" | "blocked" | "queued" | "idle" | "working" | "done";
+
+function taskStage(
+  task: Pick<AgentTask, "state" | "outcome" | "hold"> | null,
+  waits: { approval: boolean; answer: boolean },
+): TaskStage | undefined {
+  if (!task) return undefined;
+  if (task.state === "closed") return "done";
+  // A queued task whose next message waits for the agent, the limit or the computer is blocked, not
+  // merely waiting its turn: the hold is the reason it cannot start.
+  if (task.state === "queued") return task.hold === null ? "queued" : "blocked";
+  if (task.state === "idle") return task.outcome === null ? "idle" : "done";
+  if (waits.approval) return "awaiting-review";
+  if (waits.answer) return "awaiting-answer";
+  return "working";
+}
+
+/**
+ * The words for a stage that the task's own thread does not show. The list, the panel header and the
+ * mark already say a running or finished stage, so only a stage with nothing else on screen returns
+ * one here.
+ */
+function stageNoticeKey(stage: TaskStage | undefined): AppTextKey | undefined {
+  if (stage === "queued" || stage === "blocked") return "conversation.tasks.state.queued";
+  if (stage === "idle") return "conversation.tasks.state.new";
+  return undefined;
 }
 
 /**
@@ -454,9 +488,13 @@ export function TasksView(props: TasksViewProps) {
 
   /** What a running task waits for from the person. The chat answers a question or a browser takeover. */
   function waitOf(task: AgentTask): AgentTaskWait {
-    if (task.state !== "running") return undefined;
-    if (taskApproval(task, props.approvals)) return "approval";
-    return props.waitsForAnswer?.(task) ? "answer" : undefined;
+    const stage = taskStage(task, {
+      approval: taskApproval(task, props.approvals) !== undefined,
+      answer: props.waitsForAnswer?.(task) ?? false,
+    });
+    if (stage === "awaiting-review") return "approval";
+    if (stage === "awaiting-answer") return "answer";
+    return undefined;
   }
 
   function panel(taskId: string) {
@@ -510,10 +548,21 @@ export function TasksView(props: TasksViewProps) {
       props.onOpenInChat?.(current);
     };
     const chatAction = () => (props.onOpenInChat ? () => void openInChat() : undefined);
-    /** A question or a browser takeover waits: the card sends the person to the chat, which answers it. */
-    const answerCard = (agentName: string) => {
-      if (wait() !== "answer") return undefined;
-      return <TaskAnswerCard agentName={agentName} onAnswer={chatAction()} />;
+    /** The stage on the host, from the task's state, its hold and the waits it reported. */
+    const stage = () => taskStage(hosted(), { approval: approval() !== undefined, answer: wait() === "answer" });
+    /**
+     * A question or a browser takeover waits: the card sends the person to the chat, which answers it.
+     * Otherwise a stage that nothing else on the panel shows gets one muted line, so a queued or new
+     * task does not open on an empty thread with no explanation.
+     */
+    const attentionCard = (agentName: string) => {
+      if (wait() === "answer") return <TaskAnswerCard agentName={agentName} onAnswer={chatAction()} />;
+      const notice = stageNoticeKey(stage());
+      return notice ? (
+        <Text as="p" variant="caption" tone="muted" role="status">
+          {currentText().t(notice)}
+        </Text>
+      ) : undefined;
     };
     // The person reads the open task while the window has focus, as in its thread tab.
     createEffect(
@@ -584,7 +633,7 @@ export function TasksView(props: TasksViewProps) {
                 return current ? props.onRespondApproval(current, decision) : false;
               }}
               waitsForAnswer={wait() === "answer"}
-              attention={answerCard(agent().name)}
+              attention={attentionCard(agent().name)}
               stepsAbove={turnSteps.stepsAbove}
               factsAbove={turnSteps.factsAbove}
               activeSteps={turnSteps.activeSteps()}

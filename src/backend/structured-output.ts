@@ -8,6 +8,18 @@ import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-
 export class StructuredOutputError extends Error {}
 
 /**
+ * Whether a completion carried no text at all.
+ *
+ * This is the one structured-output failure that a second request can resolve. DeepSeek's JSON output
+ * mode replaces invalid JSON with spaces, so the reply can be empty while `finish_reason` is `stop`,
+ * and a model that produced a truncated or empty answer can produce a usable one next time. A reply
+ * that has text but does not parse is a different failure: the model answered, so it is not retried.
+ */
+export function isBlankStructuredOutput(response: string): boolean {
+  return response.trim().length === 0;
+}
+
+/**
  * Reads the one JSON object a text completion was asked for.
  *
  * No provider client in this repository can constrain a completion to a schema: every model reply

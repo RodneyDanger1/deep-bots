@@ -272,6 +272,17 @@ export const messages = defineMessages("error.provider", {
     "{provider} refused the saved API key. Replace or remove the key in Settings, then try again.",
   "error.provider.keyProviderNoBalance":
     "The {provider} account of the saved API key has no balance. Add credit to the account, then try again.",
+  "error.provider.keyProviderRateLimited": "{provider} is rate limiting requests. Try again shortly.",
+  "error.provider.keyProviderOverloaded": "{provider} is overloaded and could not answer. Try again shortly.",
+  "error.provider.keyProviderInvalidParameters":
+    "{provider} rejected the request parameters. Check the model and the settings, then try again.",
+  "error.provider.keyProviderServerError": "{provider} had a server error and did not answer. Try again shortly.",
+  "error.provider.keyProviderReasoningReplay":
+    "{provider} refused the reasoning of an earlier turn. Start a new chat, then try again.",
+  "error.provider.contextWindowExceeded":
+    "The message is too large for this model's context window. Shorten it, or choose a model with a larger window.",
+  "error.provider.visionUnsupported":
+    "{model} cannot read images. Choose a model that can read images, or send text only.",
   "error.provider.messageTooLarge": "OpenBot stopped {provider} because it sent a message larger than {limit} MB.",
   "error.provider.customAgentIdInvalid":
     "An agent ID must be lowercase letters, digits or `-`, and cannot be the ID of a built-in provider.",

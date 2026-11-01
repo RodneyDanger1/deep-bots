@@ -32,6 +32,9 @@ export const messages = {
   "provider.status.checking": "Denetleniyor",
 
   "provider.status.off": "Kapalı",
+  "provider.piCli.notDownloaded": "{name} Pi CLI içinde çalışır, ancak Pi CLI indirilmemiş.",
+  "provider.piCli.downloadFailed": "DeepSeek Bots Pi CLI'yi indiremedi. Tekrar deneyin.",
+  "provider.piCli.cancelDownloadFailed": "DeepSeek Bots Pi CLI indirmesini iptal edemedi. Tekrar deneyin.",
   "provider.gemini.hostSignIn":
     "Gemini'yi bağlamak için ana makinede OpenBot'u açın ve Sunucu ayarları > Sağlayıcılar bölümünde Bağlan'ı seçin. Google ile oturum açmak için o ana makinede bir tarayıcı gerekir. Uzaktan oturum açma desteklenmez.",
   "provider.key.free": "Ücretsiz",

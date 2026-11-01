@@ -292,6 +292,19 @@ export const messages = {
     "{provider} hat den gespeicherten API-Schlüssel abgelehnt. Ersetze oder entferne den Schlüssel in den Einstellungen und versuche es dann erneut.",
   "error.provider.keyProviderNoBalance":
     "Das {provider}-Konto des gespeicherten API-Schlüssels hat kein Guthaben. Lade Guthaben auf das Konto und versuche es dann erneut.",
+  "error.provider.keyProviderRateLimited": "{provider} begrenzt gerade die Anfragen. Versuche es gleich noch einmal.",
+  "error.provider.keyProviderOverloaded":
+    "{provider} ist überlastet und konnte nicht antworten. Versuche es gleich noch einmal.",
+  "error.provider.keyProviderInvalidParameters":
+    "{provider} hat die Anfrageparameter abgelehnt. Prüfe das Modell und die Einstellungen und versuche es dann erneut.",
+  "error.provider.keyProviderServerError":
+    "Bei {provider} ist ein Serverfehler aufgetreten, und es gab keine Antwort. Versuche es gleich noch einmal.",
+  "error.provider.keyProviderReasoningReplay":
+    "{provider} hat die Begründung eines früheren Durchgangs abgelehnt. Starte einen neuen Chat und versuche es dann erneut.",
+  "error.provider.contextWindowExceeded":
+    "Die Nachricht ist zu groß für das Kontextfenster dieses Modells. Kürze sie oder wähle ein Modell mit einem größeren Fenster.",
+  "error.provider.visionUnsupported":
+    "{model} kann keine Bilder lesen. Wähle ein Modell, das Bilder lesen kann, oder sende nur Text.",
   "error.provider.messageTooLarge":
     "OpenBot hat {provider} gestoppt, da eine Nachricht mit mehr als {limit} MB gesendet wurde.",
   "error.provider.customAgentIdInvalid":

@@ -20,6 +20,7 @@ import { ATTACHMENT_LIMITS, INPUT_LIMITS } from "@openbot/contracts/input-limits
 import {
   AGENT_PROVIDERS,
   type AgentModelId,
+  type AgentModelOption,
   type AgentProviderId,
   type AgentStatus,
   type AgentSummary,
@@ -245,8 +246,14 @@ function list(value: Json | undefined): Json[] {
 
 /** The disks of a browse name the disk of the home folder. */
 function startDisk(volumes: Json | undefined): boolean {
-  const root = parse(realpathSync(homedir())).root;
-  return list(volumes).some((volume) => field(volume, "path") === root);
+  // Windows reports a drive as `C:` while `parse().root` is `C:\`; compare the same normal form.
+  const normalize = (value: string): string =>
+    process.platform === "win32" ? value.replace(/[\\/]+$/u, "").toUpperCase() : value;
+  const root = normalize(parse(realpathSync(homedir())).root);
+  return list(volumes).some((volume) => {
+    const path = field(volume, "path");
+    return typeof path === "string" && normalize(path) === root;
+  });
 }
 
 function unused(name: string): () => never {
@@ -290,11 +297,50 @@ function agent(id: string, name: string, provider: AgentProviderId, model: strin
 }
 
 // `agent-oc` uses OpenCode, which protocol 3 does not know; `agent-pi` uses Pi, which protocols
-// below 7 do not know. The server hides each one from a client on such a protocol.
+// below 7 do not know; `agent-ds` uses DeepSeek, which protocols below 8 do not know. The server
+// hides each one from a client on such a protocol.
 const agents = [
   agent("agent-ada", "Ada", "claude", "claude-sonnet-4-5"),
   agent("agent-oc", "Oscar", "opencode", "anthropic/claude-sonnet-4-5"),
   agent("agent-pi", "Pia", "pi", "anthropic/claude-sonnet-4-5"),
+  agent("agent-ds", "Dana", "deepseek", "deepseek-v4-pro"),
+];
+
+// The released Team API model-option key set. `contextWindow`, `maxOutputTokens` and
+// `inputModalities` are local metadata of this computer and never cross the wire.
+const RELEASED_MODEL_OPTION_KEYS = [
+  "provider",
+  "id",
+  "name",
+  "description",
+  "defaultReasoningEffort",
+  "supportedReasoningEfforts",
+];
+
+// One option carries the local metadata that Pi reports, and one carries none, so the wire check
+// proves both that the fields are dropped and that their absence does not fail the list closed.
+const listedModels: AgentModelOption[] = [
+  {
+    provider: "deepseek",
+    id: "deepseek-flash",
+    name: "DeepSeek V4.1 Flash",
+    description: "The faster DeepSeek model.",
+    defaultReasoningEffort: "high",
+    supportedReasoningEfforts: ["low", "high", "max"],
+    reasoningEffortConfigurable: true,
+    contextWindow: 1_048_576,
+    maxOutputTokens: 131_072,
+    inputModalities: ["text", "image"],
+  },
+  {
+    provider: "deepseek",
+    id: "deepseek-v4-pro",
+    name: "DeepSeek V4 Pro",
+    description: "The larger DeepSeek model.",
+    defaultReasoningEffort: "high",
+    supportedReasoningEfforts: ["low", "high", "max"],
+    reasoningEffortConfigurable: true,
+  },
 ];
 
 function queueSnapshot(agentId: string): QueueSnapshot {
@@ -405,7 +451,7 @@ const fakeAgents: TeamApiAgents = {
   getUsage: unused("getUsage"),
   getAnalytics: unused("getAnalytics"),
   getHostAnalytics: unused("getHostAnalytics"),
-  listModels: unused("listModels"),
+  listModels: () => listedModels,
   sidebarChatIds: unused("sidebarChatIds"),
   listConversationReads: unused("listConversationReads"),
   generateProfile: unused("generateProfile"),
@@ -1440,7 +1486,7 @@ try {
       isDeepStrictEqual(ids(v3), ["agent-ada"]) &&
         isDeepStrictEqual(ids(v6), ["agent-ada", "agent-oc"]) &&
         isDeepStrictEqual(ids(v7), ["agent-ada", "agent-oc", "agent-pi"]) &&
-        isDeepStrictEqual(ids(v8), ["agent-ada", "agent-oc", "agent-pi"]),
+        isDeepStrictEqual(ids(v8), ["agent-ada", "agent-oc", "agent-pi", "agent-ds"]),
       { v3: ids(v3), v6: ids(v6), v7: ids(v7), v8: ids(v8) },
     );
     // Each frozen list is the released vocabulary of its protocol. Protocol 8 and later hide none.
@@ -1482,6 +1528,35 @@ try {
     );
     const pathV7 = await call("GET", TEAM_API_ROUTES.agent.queue("agent-pi"), { token: bobToken });
     check("the same agent is reachable on protocol 7", pathV7.status === 200, summary(pathV7));
+
+    // ---- Model metadata stays on this computer ----
+    {
+      const v8Models = await call("GET", TEAM_API_ROUTES.agents.models, { token: bobToken, protocol: 8 });
+      const rows = list(v8Models.body);
+      const localKeys = ["contextWindow", "maxOutputTokens", "inputModalities", "fastServiceTier"];
+      // The fixture must carry what the check looks for, or the check proves nothing.
+      const first = listedModels[0];
+      check(
+        "the local model option carries contextWindow, maxOutputTokens and inputModalities",
+        first !== undefined &&
+          first.contextWindow !== undefined &&
+          first.maxOutputTokens !== undefined &&
+          isDeepStrictEqual(first.inputModalities, ["text", "image"]),
+        { listedModels: listedModels.length },
+      );
+      check(
+        "the model list sends exactly the released key set, without the local metadata",
+        v8Models.status === 200 &&
+          rows.length === listedModels.length &&
+          isDeepStrictEqual(
+            rows.map((row) => field(row, "id")),
+            listedModels.map((model) => model.id),
+          ) &&
+          rows.every((row) => isDeepStrictEqual(objectKeys(row), RELEASED_MODEL_OPTION_KEYS)) &&
+          rows.every((row) => localKeys.every((key) => field(row, key) === undefined)),
+        { status: v8Models.status, rows, localKeys },
+      );
+    }
 
     const readHidden = await call("POST", AGENT_HIDDEN_ROUTES.read, { token: bobToken, json: {} });
     const readHiddenV6 = await call("POST", AGENT_HIDDEN_ROUTES.read, { token: bobToken, json: {}, protocol: 6 });
@@ -4264,7 +4339,13 @@ try {
 } finally {
   if (server) await Effect.runPromise(server.stop());
   database.close();
-  rmSync(root, { recursive: true, force: true });
+  // A SQLite handle can stay open on Windows after close; the report is written after this block,
+  // and a leftover temp folder is harmless.
+  try {
+    rmSync(root, { recursive: true, force: true });
+  } catch {
+    // best effort only
+  }
 }
 
 const failed = checks.filter((item) => !item.passed);

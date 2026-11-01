@@ -80,4 +80,10 @@ export const messages = {
   "agent.color.indigo": "Indaco",
   "agent.color.violet": "Viola",
   "agent.color.magenta": "Magenta",
+  "agent.error.providerAuth": "Il provider ha rifiutato la chiave API. Aggiorna la chiave in Impostazioni e riprova.",
+  "agent.error.providerBilling": "L'account del provider non ha credito. Aggiungi credito nell'account del provider e riprova.",
+  "agent.error.providerRateLimit": "Il provider ha raggiunto il limite di richieste. Attendi qualche minuto e riprova.",
+  "agent.error.providerUnavailable": "Il provider ha avuto un errore dal suo lato. Riprova tra qualche minuto.",
+  "agent.error.providerRequest": "Il provider ha rifiutato la richiesta. Scegli un altro modello e riprova.",
+  "agent.error.providerUnreadable": "Il provider ha inviato un errore che OpenBot non può mostrare. Riprova o controlla l'account del provider.",
 } as const satisfies PartialTranslation<typeof source>;

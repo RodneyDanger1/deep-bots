@@ -5,6 +5,7 @@ import type {
   RemoteNetworkRoute,
   RemoteNetworkRouteState,
 } from "@openbot/contracts/ipc";
+import { parseMobileConnectUrl } from "@openbot/contracts/mobile-connect";
 import { createEffect, createMemo, createSignal, createStore, onCleanup, untrack } from "solid-js";
 import { currentText } from "../../../text";
 
@@ -83,6 +84,74 @@ interface SettingsMobileConnectPanels {
   devices: MobileDeviceList;
   link: MobileConnectLinkPanel;
   route: RemoteNetworkRoutePanel;
+}
+
+/** Why a code cannot pair a phone, in the store's own words. The dialog supplies the interface text. */
+export type MobileConnectReachabilityReason =
+  | "origin_missing"
+  | "origin_loopback"
+  | "same_wifi_required"
+  | "windows_firewall_private";
+
+/**
+ * What the `api` origin in a Mobile Connect code can and cannot do. `blocked` means no phone can reach
+ * it; `warning` means a phone on the same Wi-Fi can, once the firewall admits it.
+ */
+export interface MobileConnectReachability {
+  /** The exact origin the code carries. It has no secret: the ticket is a separate query parameter. */
+  origin: string | null;
+  kind: "loopback" | "lan-http" | "remote-https" | "unreachable" | "unknown";
+  status: "ready" | "warning" | "blocked" | "unknown";
+  reasons: readonly MobileConnectReachabilityReason[];
+  /** True when the origin is a LAN address and this desktop is Windows, so a firewall may block it. */
+  windowsFirewallHint: boolean;
+}
+
+/** A permanent link is a bearer credential: it signs in a phone until it is revoked or this session ends. */
+export const MOBILE_CONNECT_LINK_SEMANTICS = {
+  bearerEquivalent: true,
+  endsWithDesktopSession: true,
+} as const;
+
+/**
+ * Reads the `api` origin out of a Mobile Connect code. The ticket itself is never used here, so the
+ * result can be shown next to the QR code without exposing it.
+ */
+export function classifyMobileConnectReachability(
+  codeUrl: string | null | undefined,
+  options: { windows: boolean },
+): MobileConnectReachability {
+  const payload = codeUrl ? parseMobileConnectUrl(codeUrl) : null;
+  if (!payload) {
+    return {
+      origin: null,
+      kind: "unknown",
+      status: "unknown",
+      reasons: ["origin_missing"],
+      windowsFirewallHint: false,
+    };
+  }
+  const origin = payload.apiUrl;
+  const hostname = new URL(origin).hostname;
+  if (hostname === "127.0.0.1" || hostname === "localhost") {
+    return { origin, kind: "loopback", status: "blocked", reasons: ["origin_loopback"], windowsFirewallHint: false };
+  }
+  if (origin.startsWith("https:")) {
+    return { origin, kind: "remote-https", status: "ready", reasons: [], windowsFirewallHint: false };
+  }
+  const reasons: MobileConnectReachabilityReason[] = ["same_wifi_required"];
+  if (options.windows) reasons.push("windows_firewall_private");
+  return {
+    origin,
+    kind: "lan-http",
+    status: "warning",
+    reasons,
+    windowsFirewallHint: options.windows,
+  };
+}
+
+function isWindowsDesktop(): boolean {
+  return /windows/iu.test(navigator.userAgent);
 }
 
 /**
@@ -574,6 +643,14 @@ export function createSettingsMobileConnectStore(props: MobileConnectStoreProps,
     return format.date(timestamp, { dateStyle: "medium" });
   }
 
+  const windowsDesktop = isWindowsDesktop();
+  const reachability = createMemo(() =>
+    classifyMobileConnectReachability(panels.connect.session?.ticket.qrData ?? null, { windows: windowsDesktop }),
+  );
+  const linkReachability = createMemo(() =>
+    classifyMobileConnectReachability(panels.link.link?.url ?? null, { windows: windowsDesktop }),
+  );
+
   return {
     cancelTicket,
     createLink,
@@ -581,6 +658,9 @@ export function createSettingsMobileConnectStore(props: MobileConnectStoreProps,
     deviceTimeLabel,
     expired,
     expiryLabel,
+    linkReachability,
+    linkSemantics: MOBILE_CONNECT_LINK_SEMANTICS,
+    reachability,
     revokeDevice,
     revokeLink,
     secondsRemaining,

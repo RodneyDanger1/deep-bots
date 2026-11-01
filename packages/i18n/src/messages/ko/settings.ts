@@ -601,4 +601,15 @@ export const messages = {
   "settings.transfer.result.signInButton": "{provider} 로그인",
   "settings.transfer.result.notImported": "가져오지 않음",
   "settings.transfer.result.warnings": "확인 필요",
+  "settings.providerKey.nextBilling":
+    "제공자 계정에 잔액이 없어요. 제공자 계정에 충전하세요. 새 키로는 해결되지 않아요.",
+  "settings.providerKey.nextRateLimit": "제공자가 한도에 도달했어요. 몇 분 기다린 후 다시 시도하세요.",
+  // The Providers tab: the way from the personal settings to the server's provider page.
+  "settings.tab.providers.description": "CLI를 다운로드하고 계정을 연결하고 기본 제공자를 선택해요.",
+  "settings.tab.providers.title": "제공자",
+  "settings.providers.open.title": "제공자 설정",
+  "settings.providers.open.description": "{name}에서 CLI를 다운로드하거나 계정을 연결해요.",
+  "settings.providers.open.action": "제공자 설정 열기",
+  "settings.providers.noServer": "활성 서버가 없어요. 서버를 열어 제공자를 관리하세요.",
+  "settings.providers.managedByHost": "{name}의 소유자 또는 관리자만 제공자를 관리할 수 있어요.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -2,6 +2,7 @@ import type { AgentMessage } from "@openbot/ui/data";
 import { currentText } from "@openbot/ui/text";
 import { createSignal } from "solid-js";
 import { formatMessageTime } from "./app-message-projection";
+import { readableErrorText } from "./features/agents/agent-error-text";
 import { agentConversationKey } from "./features/conversation/conversation-keys";
 import { createSimpleContext } from "./simple-context";
 
@@ -24,8 +25,10 @@ const UiErrors = createSimpleContext({
     const [uiErrors, setUiErrors] = createSignal<Record<string, AgentMessage[]>>({});
 
     function appendUiError(agentId: string, error: unknown, status: string, serverId: string): void {
-      const { t, errorMessage } = currentText();
-      const body = errorMessage(error, t("app.error.actionFailed"));
+      const { t } = currentText();
+      // The same rule as an agent's own error: a named key keeps its copy, and a provider body
+      // becomes a sentence for its status, so a raw body is never the message in the thread.
+      const body = readableErrorText(error, t("app.error.actionFailed"));
       const errorKey = agentConversationKey(serverId, agentId);
       // The same failure again replaces the earlier one, so a server that is down shows it once.
       setUiErrors((current) => ({

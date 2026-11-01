@@ -84,6 +84,7 @@ export const messages = {
   "error.agent.profileEndpointsChanged":
     "Les points de terminaison personnalisés ont changé pendant la génération. Réessayez.",
   "error.agent.profileInvalid": "Le fournisseur a renvoyé un profil non valide. Essayez de reformuler votre demande.",
+  "error.agent.profileBlank": "Le fournisseur a renvoyé un profil vide. Réessayez ou essayez un autre modèle.",
   "error.agent.profileSectionUnavailable":
     "La section générée est indisponible. Réessayez ou choisissez une section manuellement.",
   "error.agent.profileTimedOut": "La génération du profil a expiré. Réessayez.",

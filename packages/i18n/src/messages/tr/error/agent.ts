@@ -75,6 +75,7 @@ export const messages = {
   "error.agent.selectedGone": "Seçilen ajan artık mevcut değil.",
   "error.agent.profileEndpointsChanged": "Bu işlem oluşturulurken özel uç noktalar değişti. Tekrar deneyin.",
   "error.agent.profileInvalid": "Sağlayıcı geçersiz bir profil döndürdü. İsteminizi revize etmeyi deneyin.",
+  "error.agent.profileBlank": "Sağlayıcı boş bir profil döndürdü. Tekrar deneyin veya başka bir model seçin.",
   "error.agent.profileSectionUnavailable":
     "Oluşturulan bölüm kullanılamıyor. Tekrar deneyin veya bir bölümü manuel olarak seçin.",
   "error.agent.profileTimedOut": "Profil oluşturma zaman aşımına uğradı. Tekrar deneyin.",

@@ -638,4 +638,15 @@ export const messages = {
   "settings.transfer.result.signInButton": "Войти в {provider}",
   "settings.transfer.result.notImported": "Не импортировано",
   "settings.transfer.result.warnings": "Проверьте",
+  "settings.providerKey.nextBilling":
+    "На счёте провайдера нет средств. Пополните счёт провайдера; новый ключ это не исправит.",
+  "settings.providerKey.nextRateLimit": "Провайдер достиг ограничения. Подождите несколько минут и повторите попытку.",
+  // The Providers tab: the way from the personal settings to the server's provider page.
+  "settings.tab.providers.description": "Загрузите CLI, подключите аккаунт и выберите провайдера по умолчанию.",
+  "settings.tab.providers.title": "Провайдеры",
+  "settings.providers.open.title": "Настройки провайдеров",
+  "settings.providers.open.description": "Загрузите CLI или подключите аккаунт на сервере {name}.",
+  "settings.providers.open.action": "Открыть настройки провайдеров",
+  "settings.providers.noServer": "Нет активного сервера. Откройте сервер, чтобы управлять его провайдерами.",
+  "settings.providers.managedByHost": "Управлять провайдерами сервера {name} может только владелец или администратор.",
 } as const satisfies PartialTranslation<typeof source>;

@@ -1,5 +1,4 @@
 import type { AgentModelId, AgentProviderRef, AgentReasoningEffort } from "@openbot/contracts/ipc";
-import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
 import type { AgentProfile } from "@openbot/ui/data";
 import { type AgentActivityLabel, nextAgentActivityLabel } from "@openbot/ui/features/conversation/AgentActivity";
 import {
@@ -36,8 +35,26 @@ export interface TurnRuntime {
   providerAccountId?: string | undefined;
 }
 
+/**
+ * The conversation props that the activity line reads. A narrower dependency than all of
+ * `ConversationProps`: a test builds these fields and nothing else, with no assertion to widen them.
+ */
+export type ActivityProps = Pick<
+  ConversationProps,
+  | "agent"
+  | "messages"
+  | "activeTurnId"
+  | "activityDetail"
+  | "turnStepLines"
+  | "queue"
+  | "server"
+  | "prompt"
+  | "approval"
+  | "browserTakeover"
+>;
+
 export interface ActivityStoreDeps {
-  props: ConversationProps;
+  props: ActivityProps;
   activeDeliveries: () => Array<{ id: string }>;
   agentActivityLabels: Map<string, { activityId: string; label: AgentActivityLabel }>;
   /** Kept on the controller, so a return to the chat during the turn keeps the first record. */
@@ -80,22 +97,6 @@ export function createActivityStore(deps: ActivityStoreDeps) {
     if (current?.agent?.id === agentId) return current.activityId;
     return `${agentId}:message:${streamingMessage.id}`;
   });
-  const latestActiveCommentary = createMemo(() => {
-    const activeTurnId = deps.props.activeTurnId;
-    if (!activeTurnId) return null;
-    const streamingMessage = streamingAgentMessage();
-    if (streamingMessage && streamingMessage.itemType !== "commentary") return null;
-    for (let index = deps.props.messages.length - 1; index >= 0; index -= 1) {
-      const message = deps.props.messages[index];
-      if (message?.turnId !== activeTurnId || message.itemType !== "commentary") continue;
-      const items = message.items ?? [message.body];
-      for (let itemIndex = items.length - 1; itemIndex >= 0; itemIndex -= 1) {
-        const detail = markdownPreviewText(items[itemIndex] ?? "");
-        if (detail) return detail;
-      }
-    }
-    return null;
-  });
   const activeActivityDetail = createMemo(() => {
     // A card on screen stops the turn until the user acts, so the last tool step is not what happens now (#3707).
     if (deps.props.prompt) return currentText().t("chat.activity.waitingForAnswer");
@@ -104,9 +105,12 @@ export function createActivityStore(deps: ActivityStoreDeps) {
     const hold = heldByOwnChannelWork();
     if (hold) return currentText().t("chat.activity.workingIn", { channel: hold.channelName });
     const progress = deps.props.activityDetail?.trim();
-    // The agent's own commentary is shown as plain text, without its Markdown marks (#3425); the host's
-    // progress text is in the host's source English and is read here in the user's language.
-    return latestActiveCommentary() ?? (progress ? currentText().sourceText(progress) : null);
+    // Only the host's own progress line (`turn-progress`, a tool or step summary) is user-facing text.
+    // The conversation's commentary messages are not: the host stores a provider's reasoning deltas as
+    // commentary (`item/reasoning/textDelta`), so a chat that read them here streamed the model's private
+    // deliberation into the activity line. The line keeps the stable label instead, and the steps toggle
+    // still opens the turn's steps.
+    return progress ? currentText().sourceText(progress) : null;
   });
   const agentActivity = createMemo<"Working" | null>(() => (activeActivityId() ? "Working" : null));
   /**

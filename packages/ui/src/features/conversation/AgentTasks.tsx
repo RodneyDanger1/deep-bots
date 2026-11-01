@@ -26,7 +26,9 @@ function taskMarkState(task: AgentTask): TaskMarkState {
 export function agentTaskStatus(task: AgentTask, t: TextValue["t"], wait?: AgentTaskWait): string {
   if (task.state === "running" && wait === "approval") return t("conversation.tasks.state.waitingApproval");
   if (task.state === "running" && wait === "answer") return t("conversation.tasks.state.waitingAnswer");
-  if (task.state === "running") return task.progress ?? t("conversation.tasks.state.running");
+  // A stage is derived from the task's state and the person's wait, never from model-authored
+  // progress text: that text is arbitrary and must not become the task's visible status.
+  if (task.state === "running") return t("conversation.tasks.state.running");
   if (task.state === "queued") return t("conversation.tasks.state.queued");
   if (task.outcome === null) return t("conversation.tasks.state.new");
   return t(OUTCOME_TEXT[task.outcome]);

@@ -76,4 +76,10 @@ export const messages = {
   "agent.color.indigo": "Índigo",
   "agent.color.violet": "Violeta",
   "agent.color.magenta": "Magenta",
+  "agent.error.providerAuth": "El proveedor rechazó la clave de API. Actualiza la clave en Ajustes y vuelve a intentarlo.",
+  "agent.error.providerBilling": "La cuenta del proveedor no tiene saldo. Añade saldo en la cuenta del proveedor y vuelve a intentarlo.",
+  "agent.error.providerRateLimit": "El proveedor alcanzó su límite de solicitudes. Espera unos minutos y vuelve a intentarlo.",
+  "agent.error.providerUnavailable": "El proveedor falló en su lado. Vuelve a intentarlo en unos minutos.",
+  "agent.error.providerRequest": "El proveedor rechazó la solicitud. Elige otro modelo y vuelve a intentarlo.",
+  "agent.error.providerUnreadable": "El proveedor envió un error que OpenBot no puede mostrar. Vuelve a intentarlo o revisa la cuenta del proveedor.",
 } as const satisfies PartialTranslation<typeof source>;

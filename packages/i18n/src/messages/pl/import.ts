@@ -93,4 +93,8 @@ export const messages = {
   "import.result.channel": "Kanał",
   "import.result.notImportedTitle": "Nie zaimportowano",
   "import.result.warnings": "Niektóre elementy nie zostały przeniesione",
+  "import.disclosure.chooseAfter": "Po imporcie wybierz model i poziom wysiłku dla każdego agenta.",
+  "import.disclosure.access": "Import nie ustawia dostępu do obszaru roboczego ani Sterowania komputerem. Zaimportowane agenty startują z ustawieniami domyślnymi tego komputera.",
+  "import.disclosure.skills": "Plik importuje tylko te umiejętności, które zawiera. Pakiet DeepSeek Bots nie zawiera żadnych: jego sześć pakietów umiejętności instaluje się osobno.",
+  "import.disclosure.routines": "Rutyny są importowane w stanie podanym w pliku. Pakiet DeepSeek Bots importuje wszystkie rutyny jako nieaktywne; włącz tę, która ma działać.",
 } as const satisfies PartialTranslation<typeof source>;

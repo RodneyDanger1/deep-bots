@@ -5,7 +5,7 @@ import { Effect, Schema } from "effect";
 import type { AgentClient } from "../agent-client";
 import type { AgentStore } from "../agent-store";
 import { causeHelpers } from "../effect-boundary";
-import { decodeRecordResponse, getRecord } from "../protocol";
+import { decodeRecordResponse, getRecord, getString } from "../protocol";
 import { finiteNumberOrNull } from "./account-usage";
 import type { ProviderPort } from "./provider-runtime";
 import type { ThreadOperationFailed } from "./thread-lifecycle";
@@ -21,6 +21,32 @@ interface ThreadContextBudget {
 }
 
 const CONTEXT_COMPACTION_THRESHOLD = 0.8;
+/** The share of a 1M-token DeepSeek window at which OpenBot compacts: the answer keeps the last tenth. */
+const DEEPSEEK_LARGE_WINDOW_THRESHOLD = 0.9;
+/** The 1M window the DeepSeek models document (1,048,576 tokens). */
+const DEEPSEEK_LARGE_CONTEXT_WINDOW = 1_048_576;
+/** A model id that names DeepSeek, with the `<provider>/` prefix that Pi adds to an id. */
+const DEEPSEEK_MODEL_ID = /^(?:[^/]+\/)?deepseek(?:[-/]|$)/u;
+
+/**
+ * The share of the context window at which a thread compacts (P1-7).
+ *
+ * DeepSeek's 1M window is large enough that compacting at eight tenths throws away the last fifth of
+ * it, so a DeepSeek model compacts at 0.9. A window of 200K or less, and the window of any other
+ * provider, keep 0.8. Both readers call this - `updateBudget` below and the budget arm of
+ * `turn-lifecycle.ts` - so the two thresholds cannot drift apart.
+ */
+export function contextCompactionThreshold(
+  contextWindow: number,
+  model: string | null = null,
+): typeof CONTEXT_COMPACTION_THRESHOLD | typeof DEEPSEEK_LARGE_WINDOW_THRESHOLD {
+  const largeDeepSeek =
+    Number.isFinite(contextWindow) &&
+    contextWindow >= DEEPSEEK_LARGE_CONTEXT_WINDOW &&
+    model !== null &&
+    DEEPSEEK_MODEL_ID.test(model);
+  return largeDeepSeek ? DEEPSEEK_LARGE_WINDOW_THRESHOLD : CONTEXT_COMPACTION_THRESHOLD;
+}
 const CONTEXT_COMPACTION_TIMEOUT_MS = 120_000;
 /**
  * A started compaction of a long thread can take minutes (#3466). Its deadline is this many times
@@ -273,7 +299,8 @@ export class ContextCompaction {
     budget.contextWindow = contextWindow;
     this.#budgets.set(threadId, budget);
 
-    const pressured = usedTokens / contextWindow >= CONTEXT_COMPACTION_THRESHOLD;
+    const threshold = contextCompactionThreshold(contextWindow, getString(params, "model"));
+    const pressured = usedTokens / contextWindow >= threshold;
     if (!pressured) {
       budget.pending = false;
       budget.lastCompactedTokens = null;

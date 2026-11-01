@@ -31,6 +31,9 @@ export const messages = {
   "provider.status.unavailable": "사용 불가",
   "provider.status.checking": "확인 중",
   "provider.status.off": "꺼짐",
+  "provider.piCli.notDownloaded": "{name}은 다운로드한 Pi CLI에서 실행되지만 Pi CLI가 아직 다운로드되지 않았습니다.",
+  "provider.piCli.downloadFailed": "DeepSeek Bots에서 Pi CLI를 다운로드하지 못했어요. 다시 시도하세요.",
+  "provider.piCli.cancelDownloadFailed": "DeepSeek Bots에서 Pi CLI 다운로드를 취소하지 못했어요. 다시 시도하세요.",
   "provider.gemini.hostSignIn":
     "Gemini를 연결하려면 호스트에서 OpenBot을 열고 서버 설정 > 제공자에서 연결을 선택하세요. Google 로그인에는 해당 호스트의 브라우저가 필요해요. 원격 로그인은 지원하지 않아요.",
 

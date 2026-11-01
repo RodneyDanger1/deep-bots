@@ -75,4 +75,10 @@ export const messages = {
   "agent.color.indigo": "Índigo",
   "agent.color.violet": "Violeta",
   "agent.color.magenta": "Magenta",
+  "agent.error.providerAuth": "O provedor recusou a chave de API. Atualize a chave em Configurações e tente novamente.",
+  "agent.error.providerBilling": "A conta do provedor não tem crédito. Adicione crédito na conta do provedor e tente novamente.",
+  "agent.error.providerRateLimit": "O provedor atingiu o limite de solicitações. Aguarde alguns minutos e tente novamente.",
+  "agent.error.providerUnavailable": "O provedor falhou do lado dele. Tente novamente em alguns minutos.",
+  "agent.error.providerRequest": "O provedor recusou a solicitação. Escolha outro modelo e tente novamente.",
+  "agent.error.providerUnreadable": "O provedor enviou um erro que o OpenBot não consegue mostrar. Tente novamente ou verifique a conta do provedor.",
 } as const satisfies PartialTranslation<typeof source>;

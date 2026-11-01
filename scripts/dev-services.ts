@@ -6,6 +6,7 @@ import { type NetworkInterfaceInfo, networkInterfaces } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createOpenBotLogger, toLogValue } from "@openbot/logging";
+import { createMobileConnectUrl } from "@openbot/contracts/mobile-connect";
 import { cliSpawnTarget } from "../src/backend/cli";
 import {
   developmentInstanceIdForWorktree,
@@ -468,9 +469,6 @@ async function allocateDevelopmentPorts(
       }
     }
     configureMobileConnectDevelopmentNetwork(services, sharedEnvironment, networkInterfaces());
-    if (sharedEnvironment.OPENBOT_MOBILE_AUTH_API_URL) {
-      logger.info(`Mobile Connect API: ${sharedEnvironment.OPENBOT_MOBILE_AUTH_API_URL}`);
-    }
     if (apiPort !== DEFAULT_API_PORT) {
       logger.info(`API port ${DEFAULT_API_PORT} is busy. Using ${apiPort}.`);
     }
@@ -657,11 +655,87 @@ export function configureMobileConnectDevelopmentNetwork(
     environment.REMOTE_AUTH_WEBHOOK_URL ??= `http://127.0.0.1:${signalPort}/internal/auth-events`;
     environment.REMOTE_SIGNAL_URL ??= `ws://${address ?? "127.0.0.1"}:${signalPort}/v1/signal`;
     environment.TURN_HOST ??= address ?? "127.0.0.1";
+    // `wrangler.jsonc` names the production Signal homes. A locally signed dev ticket cannot be
+    // verified by a production Signal (different keys), so the host socket is refused with
+    // "authentication_required" and Mobile Connect never leaves its waiting state. Clear the homes
+    // so the dev Worker places this host on the local Signal it also serves.
+    environment.REMOTE_SIGNAL_HOMES ??= "";
+    environment.REMOTE_AUTH_WEBHOOK_URLS ??= "";
+  }
+
+  const configured = environment.OPENBOT_MOBILE_AUTH_API_URL?.trim();
+  if (configured) {
+    // An explicit origin is the documented way to use a tunnel or a VPS. It is validated here, before
+    // the stack starts, so a code is never minted for an address that no phone can reach.
+    const described = describeMobileConnectDevelopmentOrigin(configured);
+    if (described.problem) throw new Error(described.problem);
+    if (described.origin) environment.OPENBOT_MOBILE_AUTH_API_URL = described.origin;
+    logger.info(`Mobile Connect API origin: ${described.origin} (${described.kind}). ${described.hint}`);
+    return;
   }
 
   if (!address) return;
   environment.OPENBOT_API_HOST ??= "0.0.0.0";
-  environment.OPENBOT_MOBILE_AUTH_API_URL ??= `http://${address}:${apiPort}`;
+  environment.OPENBOT_MOBILE_AUTH_API_URL = `http://${address}:${apiPort}`;
+  logger.info(
+    `Mobile Connect API origin: http://${address}:${apiPort} (private LAN). A phone must be on the same Wi-Fi. If Windows Firewall is on, allow inbound TCP ${apiPort} for the program that listens on it. Run \`bun scripts/mobile-connect-preflight.ts\` for the exact state. See docs/mobile/connect-troubleshooting.md.`,
+  );
+}
+
+export interface MobileConnectDevelopmentOrigin {
+  /** The origin a code may carry, or null when the value is unusable. */
+  origin: string | null;
+  kind: "https" | "lan-http" | "loopback" | "invalid";
+  /** A named, actionable refusal. Null when the origin is usable. */
+  problem: string | null;
+  hint: string;
+}
+
+/**
+ * Validates `OPENBOT_MOBILE_AUTH_API_URL` with the same rule the mobile app applies, then adds the one
+ * fact the contract cannot know: a phone cannot reach loopback, and a LAN origin needs the same Wi-Fi.
+ */
+export function describeMobileConnectDevelopmentOrigin(value: string): MobileConnectDevelopmentOrigin {
+  let origin: string;
+  try {
+    // The contract validates the value exactly as the app does: HTTPS, or HTTP on a private address.
+    origin = new URL(createMobileConnectUrl({ apiUrl: value, ticket: "x".repeat(32) })).searchParams.get("api") ?? "";
+  } catch {
+    return {
+      origin: null,
+      kind: "invalid",
+      problem:
+        "OPENBOT_MOBILE_AUTH_API_URL is not a usable Mobile Connect API origin. Use a bare origin: HTTPS, or HTTP on a private address such as http://192.168.1.20:3100. A path, a query or plain HTTP on a public or Tailscale address is refused.",
+      hint: "",
+    };
+  }
+  const hostname = new URL(origin).hostname;
+  if (origin.startsWith("https:")) {
+    return { origin, kind: "https", problem: null, hint: "A phone can reach this origin from any network." };
+  }
+  if (hostname === "127.0.0.1" || hostname === "localhost") {
+    return {
+      origin: null,
+      kind: "loopback",
+      problem: `OPENBOT_MOBILE_AUTH_API_URL names ${origin}, which only this computer can reach. Set it to this computer's LAN address, or to an HTTPS endpoint that forwards to the API. Run \`bun scripts/mobile-connect-preflight.ts\` to see the address to use.`,
+      hint: "",
+    };
+  }
+  if (!isPrivateIpv4(hostname)) {
+    return {
+      origin: null,
+      kind: "invalid",
+      problem: `OPENBOT_MOBILE_AUTH_API_URL names ${origin}. Plain HTTP is accepted only on a private address, and a phone cannot reach a public address over HTTP. Use HTTPS, or the LAN address.`,
+      hint: "",
+    };
+  }
+  return {
+    origin,
+    kind: "lan-http",
+    problem: null,
+    hint:
+      "A phone must be on the same Wi-Fi, and Windows Firewall must allow inbound TCP for the program that listens on this port. See docs/mobile/connect-troubleshooting.md.",
+  };
 }
 
 export function selectMobileConnectLanAddress(interfaces: DevelopmentNetworkInterfaces): string | null {
@@ -703,7 +777,7 @@ function isPrivateIpv4(address: string): boolean {
 async function waitForDevelopmentApi(portValue: string | undefined, child: ChildProcess): Promise<void> {
   const port = readPort(portValue);
   if (!port) throw new Error("The development API port is missing.");
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error("The development Auth API stopped before it became ready.");
     try {
@@ -722,7 +796,7 @@ async function waitForDevelopmentApi(portValue: string | undefined, child: Child
 async function waitForDevelopmentRemote(portValue: string | undefined, child: ChildProcess): Promise<void> {
   const port = readPort(portValue);
   if (!port) throw new Error("The development Signal health port is missing.");
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error("The development Signal service stopped before it became ready.");
     try {

@@ -78,4 +78,10 @@ export const messages = {
   "agent.color.indigo": "Indigo",
   "agent.color.violet": "Violet",
   "agent.color.magenta": "Magenta",
+  "agent.error.providerAuth": "De aanbieder heeft de API-sleutel geweigerd. Werk de sleutel bij in Instellingen en probeer het opnieuw.",
+  "agent.error.providerBilling": "Het account van de aanbieder heeft geen tegoed. Voeg tegoed toe in het account van de aanbieder en probeer het opnieuw.",
+  "agent.error.providerRateLimit": "De aanbieder heeft zijn limiet voor aanvragen bereikt. Wacht een paar minuten en probeer het opnieuw.",
+  "agent.error.providerUnavailable": "De aanbieder is aan zijn kant mislukt. Probeer het over een paar minuten opnieuw.",
+  "agent.error.providerRequest": "De aanbieder heeft het verzoek geweigerd. Kies een ander model en probeer het opnieuw.",
+  "agent.error.providerUnreadable": "De aanbieder stuurde een fout die OpenBot niet kan tonen. Probeer het opnieuw of controleer het account van de aanbieder.",
 } as const satisfies PartialTranslation<typeof source>;

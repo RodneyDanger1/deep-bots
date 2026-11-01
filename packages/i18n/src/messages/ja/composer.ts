@@ -136,4 +136,9 @@ export const messages = {
   "composer.newChat.action": "新しいチャット",
   "composer.context.compact": "今すぐ圧縮",
   "composer.context.compactFailed": "コンテキストを圧縮できませんでした。もう一度お試しください。",
+  "composer.context.notReported": "プロバイダーはコンテキストを報告しません",
+  "composer.model.context": "コンテキスト {tokens}",
+  "composer.model.maxOutput": "最大出力 {tokens}",
+  "composer.model.imageInput": "画像入力",
+  "composer.model.textOnly": "テキストのみ",
 } as const satisfies PartialTranslation<typeof source>;

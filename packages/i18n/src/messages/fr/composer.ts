@@ -140,4 +140,9 @@ export const messages = {
   "composer.newChat.action": "Nouvelle discussion",
   "composer.context.compact": "Compacter",
   "composer.context.compactFailed": "Impossible de compacter le contexte. Réessayez.",
+  "composer.context.notReported": "Le fournisseur ne communique pas le contexte",
+  "composer.model.context": "Contexte de {tokens}",
+  "composer.model.maxOutput": "Sortie max. de {tokens}",
+  "composer.model.imageInput": "Entrée d'image",
+  "composer.model.textOnly": "Texte uniquement",
 } as const satisfies PartialTranslation<typeof source>;

@@ -149,6 +149,15 @@ export const STORY_SHARED_TABLES: SharedTable[] = [
   { name: "touchpoints", ownerAgentId: "chief", rowCount: 1_902 },
 ];
 
+/**
+ * A model option in the preview. The optional facts below - the context window, the most tokens the
+ * model answers with, and what it can read - are the contract's own optional fields, and the picker
+ * reads one only when it is present. A model without a fact is one whose host reported none, so the
+ * picker shows no fact for it rather than a guess.
+ *
+ * The facts on the fictional models are fixture data. The two DeepSeek models carry only the facts
+ * that the plan records for them, and no output cap, so no surface promises one.
+ */
 export const STORY_MODELS: ClientAgentModelOption[] = [
   {
     provider: "codex",
@@ -158,6 +167,9 @@ export const STORY_MODELS: ClientAgentModelOption[] = [
     defaultReasoningEffort: "medium",
     supportedReasoningEfforts: ["low", "medium", "high"],
     fastServiceTier: "priority",
+    contextWindow: 400_000,
+    maxOutputTokens: 128_000,
+    inputModalities: ["text", "image"],
   },
   {
     provider: "codex",
@@ -199,6 +211,9 @@ export const STORY_MODELS: ClientAgentModelOption[] = [
     description: "Most capable Claude model for complex work.",
     defaultReasoningEffort: "high",
     supportedReasoningEfforts: ["low", "medium", "high"],
+    contextWindow: 200_000,
+    maxOutputTokens: 64_000,
+    inputModalities: ["text", "image"],
   },
   {
     provider: "claude",
@@ -247,6 +262,29 @@ export const STORY_MODELS: ClientAgentModelOption[] = [
     description: "Discovered from the Antigravity ACP server.",
     defaultReasoningEffort: "high",
     supportedReasoningEfforts: ["low", "high"],
+  },
+  // The DeepSeek models that an imported agent runs on: a 1M context, and image input on Flash
+  // only. No output cap is recorded for either, so the picker shows none, and the panel never
+  // promises an output size that no host reported.
+  {
+    provider: "deepseek",
+    id: "deepseek-v4-pro",
+    name: "DeepSeek V4 Pro",
+    description: "The DeepSeek model for long, careful work.",
+    defaultReasoningEffort: "high",
+    supportedReasoningEfforts: ["low", "high", "max"],
+    contextWindow: 1_000_000,
+    inputModalities: ["text"],
+  },
+  {
+    provider: "deepseek",
+    id: "deepseek-v4.1-flash",
+    name: "DeepSeek V4.1 Flash",
+    description: "The fast DeepSeek model, and the one that reads images.",
+    defaultReasoningEffort: "low",
+    supportedReasoningEfforts: ["low", "high", "max"],
+    contextWindow: 1_000_000,
+    inputModalities: ["text", "image"],
   },
 ];
 

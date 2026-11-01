@@ -26,6 +26,7 @@ import {
   Field,
   Input,
   OctagonX,
+  Text,
 } from "@openbot/ui";
 import { createSignal, onSettled, Show } from "solid-js";
 import { useText } from "../../text";
@@ -93,6 +94,23 @@ export function isKeyDialogProvider(provider: AgentProviderId): provider is KeyD
   return Object.hasOwn(KEY_TEXT, provider);
 }
 
+/** A refusal that another key cannot fix, and the next step that does. */
+type KeyRefusal = "billing" | "rateLimit";
+
+/**
+ * The next step a provider's refusal asks for, when the key is not the cause. A 402 says the account
+ * has no credit and a 429 says the provider limits this computer's requests, so a new key fixes
+ * neither; the dialog then says what does, instead of only repeating the provider's body.
+ */
+function keyRefusal(error: unknown): KeyRefusal | null {
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  if (/\b402\b|\bpayment required\b|\binsufficient (?:balance|funds|credit)\b|\bno credit\b/iu.test(message))
+    return "billing";
+  if (/\b429\b|\btoo many requests\b|\brate limit\b|\binsufficient_quota\b|\bquota\b/iu.test(message))
+    return "rateLimit";
+  return null;
+}
+
 /** The provider-key half of the desktop API, narrowed so a test can pass four functions. */
 export interface ProviderKeyApi {
   /**
@@ -128,6 +146,8 @@ export function OpenCodeKeyDialog(props: OpenCodeKeyDialogProps) {
   const [stored, setStored] = createSignal<ProviderApiKeyStatus>("missing");
   const [phase, setPhase] = createSignal<DialogPhase>("loading");
   const [error, setError] = createSignal<string | null>(null);
+  /** The next step for a refusal that the key cannot fix; null when the last failure named none. */
+  const [refusal, setRefusal] = createSignal<KeyRefusal | null>(null);
   const busy = () => phase() !== "idle";
 
   onSettled(() => {
@@ -141,10 +161,12 @@ export function OpenCodeKeyDialog(props: OpenCodeKeyDialogProps) {
       return;
     }
     setPhase("loading");
+    setRefusal(null);
     try {
       setStored((await props.api.getProviderApiKeyState(provider())).status);
     } catch (cause) {
       setError(errorMessage(cause, t("provider.openCodeKey.readFailed")));
+      setRefusal(keyRefusal(cause));
     } finally {
       setPhase("idle");
     }
@@ -155,6 +177,7 @@ export function OpenCodeKeyDialog(props: OpenCodeKeyDialogProps) {
     if (busy() || !value) return;
     setPhase("saving");
     setError(null);
+    setRefusal(null);
     try {
       await props.api.setProviderApiKey({ provider: provider(), key: value });
       // The typed key is dropped rather than kept as a draft: OpenCode has restarted with it, and
@@ -163,6 +186,7 @@ export function OpenCodeKeyDialog(props: OpenCodeKeyDialogProps) {
       props.onClose();
     } catch (cause) {
       setError(errorMessage(cause, t("provider.openCodeKey.saveFailed")));
+      setRefusal(keyRefusal(cause));
       setPhase("idle");
     }
   }
@@ -171,22 +195,26 @@ export function OpenCodeKeyDialog(props: OpenCodeKeyDialogProps) {
     if (busy()) return;
     setPhase("removing");
     setError(null);
+    setRefusal(null);
     try {
       await props.api.clearProviderApiKey(provider());
       setKey("");
       props.onClose();
     } catch (cause) {
       setError(errorMessage(cause, t("provider.openCodeKey.removeFailed")));
+      setRefusal(keyRefusal(cause));
       setPhase("idle");
     }
   }
 
   async function reconnect(): Promise<void> {
     if (!props.onReconnect) return;
+    setRefusal(null);
     try {
       await props.onReconnect();
     } catch (cause) {
       setError(errorMessage(cause, t("provider.openCodeKey.reconnectFailed")));
+      setRefusal(keyRefusal(cause));
     }
   }
   return (
@@ -248,6 +276,21 @@ export function OpenCodeKeyDialog(props: OpenCodeKeyDialogProps) {
                       <AlertDescription>{message()}</AlertDescription>
                     </AlertContent>
                   </Alert>
+                )}
+              </Show>
+
+              {/*
+               * The next step for the two refusals that a new key cannot fix. It sits above the
+               * actions, in the footer, so the reader with the provider's error on screen also
+               * reads what to do about it. No value of the key is ever rendered here.
+               */}
+              <Show when={refusal()}>
+                {(step) => (
+                  <Text as="p" variant="caption" tone="muted" role="status">
+                    {step() === "billing"
+                      ? t("settings.providerKey.nextBilling")
+                      : t("settings.providerKey.nextRateLimit")}
+                  </Text>
                 )}
               </Show>
 

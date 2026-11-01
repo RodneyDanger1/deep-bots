@@ -153,4 +153,8 @@ export const messages = {
     "Niet gekopieerd. Voer elke sleutel opnieuw in OpenBot in als een tool die nodig heeft.",
   "import.hermes.reason.history":
     "De chatgeschiedenis blijft in Hermes. De herinneringen bewaren wat hij heeft geleerd.",
+  "import.disclosure.chooseAfter": "Kies na de import het model en de inspanning voor elke agent.",
+  "import.disclosure.access": "Een import kan de werkruimtetoegang en Computerbesturing niet instellen. Geïmporteerde agents starten met de standaardwaarden van deze computer.",
+  "import.disclosure.skills": "Een bestand importeert alleen de vaardigheden die het bevat. Het DeepSeek Bots-pak bevat er geen: de zes vaardigheidspakketten installeer je apart.",
+  "import.disclosure.routines": "Routines worden geïmporteerd in de status die het bestand aangeeft. Het DeepSeek Bots-pak importeert elke routine inactief; zet er een aan als die moet lopen.",
 } as const satisfies PartialTranslation<typeof source>;

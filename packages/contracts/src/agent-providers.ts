@@ -439,7 +439,7 @@ const AGENT_PROVIDER_DESCRIPTOR_TABLE = {
     onboardingDescription: "DeepSeek models with a DeepSeek API key",
     signInMessage: "Add a DeepSeek API key to continue.",
     installGuideLink: null,
-    defaultModel: "deepseek-v4-pro",
+    defaultModel: "deepseek-flash",
     legacyModelPrefix: null,
     authKind: "deepseek",
     pickerOrder: 10,

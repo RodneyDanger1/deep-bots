@@ -41,6 +41,7 @@ import {
   SlidersHorizontal,
   Switch,
   Tabs,
+  Text,
   Tooltip,
   Zap,
 } from "@openbot/ui";
@@ -173,6 +174,30 @@ const MAX_EFFORT_SEGMENTS = 5;
  */
 const MAX_EFFORT_SEGMENT_CHARACTERS = 26;
 
+/**
+ * The facts that a model option may carry: its context window, the most tokens it answers with, and
+ * the input it reads (`AgentModelOption` in the contracts). Every field is optional, and a host sends
+ * one only when the provider reported it. The picker then shows that fact and nothing more: it never
+ * fills a missing number with a default, so a model whose output cap is unknown shows none at all,
+ * and a model whose input is unknown does not claim to be text-only.
+ */
+type ModelFacts = Pick<ClientAgentModelOption, "contextWindow" | "maxOutputTokens" | "inputModalities">;
+
+/** The facts of one model option, taken only when the host reported them. */
+function modelFacts(option: ClientAgentModelOption): ModelFacts {
+  return {
+    contextWindow: option.contextWindow,
+    maxOutputTokens: option.maxOutputTokens,
+    inputModalities: option.inputModalities,
+  };
+}
+
+function hasFacts(facts: ModelFacts): boolean {
+  return (
+    facts.contextWindow !== undefined || facts.maxOutputTokens !== undefined || facts.inputModalities !== undefined
+  );
+}
+
 export function ProviderModelPicker(props: ProviderModelPickerProps) {
   const text = useText();
   const { t, format } = text;
@@ -210,6 +235,32 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
     return id && railAccounts(props.provider).some((account) => account.id === id) ? id : null;
   };
   const customIds = createMemo(() => customProviderIds(props.customProviders ?? []));
+  /** The facts the host reported, by the picker's list key: a model id alone can repeat across tabs. */
+  const factsByModel = createMemo(() => {
+    const facts = new Map<string, ModelFacts>();
+    for (const option of props.modelOptions) {
+      const reported = modelFacts(option);
+      if (hasFacts(reported)) facts.set(`${option.provider}:${option.id}`, reported);
+    }
+    return facts;
+  });
+  /**
+   * The facts of one model in the reader's language, in the order context, output, input. A fact the
+   * host did not report is left out rather than rounded, and the output fact is a cap that the model
+   * itself reported, never a promise about what a turn writes.
+   */
+  const factsLabel = (model: PickerModel): string[] => {
+    const facts = factsByModel().get(pickerModelKey(model));
+    if (!facts) return [];
+    const label: string[] = [];
+    if (facts.contextWindow !== undefined)
+      label.push(t("composer.model.context", { tokens: format.compact(facts.contextWindow) }));
+    if (facts.maxOutputTokens !== undefined)
+      label.push(t("composer.model.maxOutput", { tokens: format.compact(facts.maxOutputTokens) }));
+    if (facts.inputModalities?.includes("image")) label.push(t("composer.model.imageInput"));
+    else if (facts.inputModalities) label.push(t("composer.model.textOnly"));
+    return label;
+  };
   const selectedModel = createMemo(() =>
     props.modelOptions.find((option) => option.provider === props.provider && option.id === props.value),
   );
@@ -690,6 +741,11 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
                   () => fades.remeasure(),
                 );
                 const available = () => status().state === "available";
+                /** The facts of the model already chosen on this tab, for the line under the effort row. */
+                const selectedFacts = (): string[] => {
+                  const model = selected();
+                  return model ? factsLabel(model) : [];
+                };
                 // An account that is not signed in holds back the models its provider serves.
                 const modelEnabled = (model: PickerModel) =>
                   modelAvailable(model) && (accountId() === null || available());
@@ -868,19 +924,24 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
                           renderItem={(item) => {
                             const model = item.rawValue;
                             const isSelected = () => selectedKey() === pickerModelKey(model);
+                            // The facts join the accessible name, so a reader on the row hears them
+                            // before choosing. `format.list` joins them the way the language does.
+                            const optionLabel = () => {
+                              const name = displayModelName(model.name, model.id);
+                              return format.list([
+                                model.id === railDefaultModel(provider)
+                                  ? t("provider.picker.defaultModelLabel", { name })
+                                  : name,
+                                ...factsLabel(model),
+                              ]);
+                            };
                             return (
                               <Listbox.Item
                                 as="button"
                                 item={item}
                                 type="button"
                                 class={["provider-model-option", { "provider-model-option-selected": isSelected() }]}
-                                aria-label={
-                                  model.id === railDefaultModel(provider)
-                                    ? t("provider.picker.defaultModelLabel", {
-                                        name: displayModelName(model.name, model.id),
-                                      })
-                                    : displayModelName(model.name, model.id)
-                                }
+                                aria-label={optionLabel()}
                                 disabled={!modelEnabled(model)}
                                 onClick={() => {
                                   if (!isSelected()) selectModel(model, accountId());
@@ -958,6 +1019,13 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
                           onChange={(next) => props.onFastModeChange?.(next)}
                         />
                       </div>
+                    </Show>
+                    {/* What the chosen model reported about itself. No fact, no line: a missing
+                        number is never filled in, so the panel cannot promise an output size. */}
+                    <Show when={selectedFacts().length > 0}>
+                      <Text as="p" variant="caption" tone="muted">
+                        {format.list(selectedFacts())}
+                      </Text>
                     </Show>
                   </Tabs.Content>
                 );

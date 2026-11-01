@@ -64,4 +64,8 @@ export const messages = {
   "import.result.channel": "Kanal",
   "import.result.notImportedTitle": "İçe aktarılmadı",
   "import.result.warnings": "Bazı öğeler taşınmadı",
+  "import.disclosure.chooseAfter": "İçe aktarmadan sonra her ajan için modeli ve çabayı seçin.",
+  "import.disclosure.access": "İçe aktarma, çalışma alanı erişimini ve Bilgisayar kullanımını ayarlayamaz. İçe aktarılan ajanlar bu bilgisayarın varsayılanlarıyla başlar.",
+  "import.disclosure.skills": "Bir dosya yalnızca içerdiği becerileri içe aktarır. DeepSeek Bots paketinde beceri yok: altı beceri paketi ayrıca kurulur.",
+  "import.disclosure.routines": "Rutinler, dosyanın belirttiği durumda içe aktarılır. DeepSeek Bots paketi tüm rutinleri devre dışı olarak içe aktarır; çalışmasını istediğinizde birini açın.",
 } as const satisfies PartialTranslation<typeof source>;

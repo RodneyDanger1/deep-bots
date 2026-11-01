@@ -287,6 +287,13 @@ export const messages = {
     "{provider} は保存された API キーを拒否しました。設定でキーを置き換えるか削除してから、もう一度お試しください。",
   "error.provider.keyProviderNoBalance":
     "保存された API キーの {provider} アカウントに残高がありません。アカウントにクレジットを追加してから、もう一度お試しください。",
+  "error.provider.keyProviderRateLimited": "{provider} はリクエストを制限しています。しばらくしてからもう一度お試しください。",
+  "error.provider.keyProviderOverloaded": "{provider} は混雑しているため応答できませんでした。しばらくしてからもう一度お試しください。",
+  "error.provider.keyProviderInvalidParameters": "{provider} はリクエストのパラメーターを受け付けませんでした。モデルと設定を確認してから、もう一度お試しください。",
+  "error.provider.keyProviderServerError": "{provider} でサーバーエラーが発生し、応答がありませんでした。しばらくしてからもう一度お試しください。",
+  "error.provider.keyProviderReasoningReplay": "{provider} は前のターンの推論を受け付けませんでした。新しいチャットを開始してから、もう一度お試しください。",
+  "error.provider.contextWindowExceeded": "このモデルのコンテキストウィンドウにはメッセージが大きすぎます。短くするか、より大きなウィンドウのモデルを選んでください。",
+  "error.provider.visionUnsupported": "{model} は画像を読み取れません。画像を読み取れるモデルを選ぶか、テキストのみを送信してください。",
   "error.provider.messageTooLarge":
     "{limit} MB を超えるメッセージを送信したため、OpenBot は {provider} を停止しました。",
   "error.provider.customAgentIdInvalid":

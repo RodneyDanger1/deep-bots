@@ -614,4 +614,16 @@ export const messages = {
   "settings.transfer.result.signInButton": "Log in bij {provider}",
   "settings.transfer.result.notImported": "Niet geïmporteerd",
   "settings.transfer.result.warnings": "Controleer deze",
+  "settings.providerKey.nextBilling":
+    "Het account van de aanbieder heeft geen tegoed. Voeg tegoed toe in het account van de aanbieder; een nieuwe sleutel lost dit niet op.",
+  "settings.providerKey.nextRateLimit":
+    "De aanbieder heeft zijn limiet bereikt. Wacht een paar minuten en probeer het opnieuw.",
+  // The Providers tab: the way from the personal settings to the server's provider page.
+  "settings.tab.providers.description": "Download een CLI, verbind een account en kies de standaardaanbieder.",
+  "settings.tab.providers.title": "Aanbieders",
+  "settings.providers.open.title": "Aanbiederinstellingen",
+  "settings.providers.open.description": "Download een CLI of verbind een account op {name}.",
+  "settings.providers.open.action": "Aanbiederinstellingen openen",
+  "settings.providers.noServer": "Er is geen actieve server. Open een server om de aanbieders ervan te beheren.",
+  "settings.providers.managedByHost": "Alleen een eigenaar of beheerder van {name} kan de aanbieders ervan beheren.",
 } as const satisfies PartialTranslation<typeof source>;

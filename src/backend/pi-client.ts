@@ -76,7 +76,98 @@ const PiSessionUsage = Schema.Struct({
     cacheRead: Schema.Number,
     cacheWrite: Schema.Number,
   }),
+  /**
+   * The context window Pi reports for the session, when it reports one. Pi's own `get_session_stats`
+   * carries no window on every build, so this stays optional and `piContextBudget` falls back to the
+   * dated DeepSeek table below.
+   */
+  contextWindow: Schema.optional(Schema.Number),
 });
+type PiSessionStats = typeof PiSessionUsage.Type;
+
+/**
+ * The DeepSeek models this build knows, from the provider documentation read 2026-11-01.
+ *
+ * Pi's session stats report no context window, and its model list need not report the input
+ * modalities, so these rows are the fallback: `piContextBudget` takes the window, and the image
+ * gate takes the modalities. Vision is flash-only: the API replaces an image sent to
+ * `deepseek-v4-pro` with `[Unsupported Image]`, which looks like a successful turn, so OpenBot
+ * refuses it before the send instead of letting the placeholder reach the model.
+ */
+const DEEPSEEK_STATIC_MODELS: Readonly<Record<string, { contextWindow: number; input: readonly string[] }>> = {
+  "deepseek-flash": { contextWindow: 1_048_576, input: ["text", "image"] },
+  "deepseek-v4-pro": { contextWindow: 1_048_576, input: ["text"] },
+};
+
+/** The tokens a Pi session counts, and the window they fill. */
+export interface PiContextBudget {
+  usedTokens: number;
+  contextWindow: number;
+}
+
+/**
+ * The tokens a Pi session counts against its context window, or null when no window is known.
+ *
+ * Pi's counters are cumulative session totals, not the last request's context, so the fill is an
+ * estimate: the prompt tokens (`input` with both cache counters) plus the output tokens that the
+ * next prompt reads back. `fallbackWindow` is the dated model table; a value Pi reports wins over
+ * it, and a session with neither keeps today's honest no-budget answer.
+ */
+export function piContextBudget(stats: PiSessionStats, fallbackWindow: number | null): PiContextBudget | null {
+  const contextWindow = stats.contextWindow ?? fallbackWindow;
+  if (contextWindow === null || !Number.isFinite(contextWindow) || contextWindow <= 0) return null;
+  const { input, output, cacheRead, cacheWrite } = stats.tokens;
+  const usedTokens = input + cacheRead + cacheWrite + output;
+  if (!Number.isFinite(usedTokens) || usedTokens < 0) return null;
+  return { usedTokens, contextWindow };
+}
+
+/** The thinking level that Pi and DeepSeek honour. */
+export type PiThinkingLevel = "off" | "low" | "high" | "max";
+
+const PI_THINKING_LEVELS: Readonly<Record<string, PiThinkingLevel>> = {
+  none: "off",
+  minimal: "low",
+  low: "low",
+  medium: "high",
+  high: "high",
+  xhigh: "high",
+  max: "max",
+  ultra: "max",
+};
+
+/**
+ * The one level map of the Pi client: a contract effort or a Pi level to the level Pi sends.
+ *
+ * DeepSeek honours three thinking levels, so `medium` and `xhigh` collapse to `high`; a level the
+ * map does not name has no truthful Pi level and returns null, which the caller refuses. Both the
+ * model list and the session settings read this map, so the picker cannot offer a level that
+ * `#configure` would send differently.
+ */
+export function piThinkingLevel(level: string): PiThinkingLevel | null {
+  return PI_THINKING_LEVELS[level] ?? null;
+}
+
+/**
+ * The levels of a model, as the contract names them. Pi advertises its own names, and the contract
+ * has no `off`, so only mapped, truthful levels are offered; `medium`/`xhigh` collapse into the one
+ * `high` that both Pi and DeepSeek honour, which leaves low, high and max.
+ */
+export function piModelLevels(advertised: readonly string[]): string[] {
+  const levels = new Set<string>();
+  for (const level of advertised) {
+    const mapped = piThinkingLevel(level);
+    if (mapped !== null && mapped !== "off") levels.add(mapped);
+  }
+  return [...levels];
+}
+
+/** The static row of a model id, with a provider prefix and a `[1m]` suffix removed. */
+function staticDeepSeekModel(model: string | null): { contextWindow: number; input: readonly string[] } | null {
+  if (!model) return null;
+  const id = model.slice(model.lastIndexOf("/") + 1).replace(/\[1m\]$/u, "");
+  return DEEPSEEK_STATIC_MODELS[id] ?? null;
+}
 
 export interface PiProviderOptions {
   requestTimeoutMs?: number;
@@ -155,6 +246,11 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
   readonly #threads = new Map<string, PiThread>();
   readonly #released = new Map<string, unknown>();
   readonly #secrets = new Set<string>();
+  /**
+   * The input modalities that Pi's catalogue reported for each model id, kept from `#models` for the
+   * image gate of `#prompt`. An id the catalogue does not report falls back to `DEEPSEEK_STATIC_MODELS`.
+   */
+  readonly #modelInputs = new Map<string, readonly string[]>();
   readonly #opening = Semaphore.makeUnsafe(1);
   /** Processes of opens in flight. They are not in `#threads` until the open retains them. */
   readonly #starting = new Set<PiRpc>();
@@ -189,12 +285,31 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
 
   #redact = (text: string): string => redactMcpValues(redactText(text), this.#secretValues());
 
-  /** Pi starts an API error with its HTTP status. A key provider's 401 and 402 point at the saved key. */
+  /**
+   * Pi starts an API error with its HTTP status. A key provider's status names the product text, so
+   * the user reads what to do instead of Pi's redacted sentence. 429 and 503 say to try later and
+   * never retry: a generic retry is not this client's policy.
+   */
   #failureText(message: string | null): string {
     if (message && this.provider !== "pi") {
       const provider = agentProviderName(this.provider);
       if (/^401\b/u.test(message)) return sourceText("error.provider.keyProviderRefused", { provider });
       if (/^402\b/u.test(message)) return sourceText("error.provider.keyProviderNoBalance", { provider });
+      if (/^429\b/u.test(message)) return sourceText("error.provider.keyProviderRateLimited", { provider });
+      if (/^503\b/u.test(message)) return sourceText("error.provider.keyProviderOverloaded", { provider });
+      if (/^422\b/u.test(message)) return sourceText("error.provider.keyProviderInvalidParameters", { provider });
+      if (/^500\b/u.test(message)) return sourceText("error.provider.keyProviderServerError", { provider });
+      // DeepSeek returns 400 when the whole prompt no longer fits the model's window. Name it,
+      // because a bare 400 reads as a malformed request and sends the user to the wrong fix.
+      if (
+        /^400\b/u.test(message) &&
+        /(context length|context_length|maximum context|too many tokens|prompt is too long)/iu.test(message)
+      )
+        return sourceText("error.provider.contextWindowExceeded", { provider });
+      // DeepSeek returns 400 when a later tool request does not echo an earlier `reasoning_content`.
+      // OpenBot cannot synthesize it: name the failure so the user is not told the request was bad.
+      if (/^400\b/u.test(message) && /reasoning_content/iu.test(message))
+        return sourceText("error.provider.keyProviderReasoningReplay", { provider });
     }
     return this.#redact(message ?? "Pi model request failed.");
   }
@@ -378,21 +493,45 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
             // A key provider's client lists only its own models. Pi also lists the models of other signed-in providers.
             if (!provider || !id || (keyProvider && provider !== keyProvider.id)) continue;
             const reasoning = isRecord(model) && model.reasoning === true;
+            const input = getArray(model, "input").filter(isString);
+            if (input.length) this.#modelInputs.set(id, input);
+            // The local metadata the picker may show, when Pi reports it: optional fields, never
+            // required, and never serialized to the Team API. A missing value is omitted, not zero.
+            const contextWindow =
+              isRecord(model) &&
+              typeof model.contextWindow === "number" &&
+              Number.isFinite(model.contextWindow) &&
+              model.contextWindow > 0
+                ? model.contextWindow
+                : null;
+            const maxOutputTokens =
+              isRecord(model) &&
+              typeof model.maxTokens === "number" &&
+              Number.isFinite(model.maxTokens) &&
+              model.maxTokens > 0
+                ? model.maxTokens
+                : null;
+            const inputModalities = input.filter(
+              (value): value is "text" | "image" => value === "text" || value === "image",
+            );
             let levels: string[] = [];
             if (reasoning) {
               yield* connection.request({ type: "set_model", provider, modelId: id }, timeoutMs);
               const advertised = yield* connection.request({ type: "get_available_thinking_levels" }, timeoutMs);
-              levels = getArray(advertised, "levels")
-                .filter(isString)
-                .map((level) => (level === "off" ? "none" : level));
+              levels = piModelLevels(getArray(advertised, "levels").filter(isString));
             }
-            const preferred = getString(state, "thinkingLevel");
+            const preferred = piThinkingLevel(getString(state, "thinkingLevel") ?? "");
             models.push({
               model: keyProvider ? id : `${provider}/${id}`,
               displayName: getString(model, "name") ?? id,
-              defaultReasoningEffort: preferred && levels.includes(preferred) ? preferred : (levels[0] ?? "none"),
+              // `medium` is the contract effort that clients which predate the configurable flag show.
+              defaultReasoningEffort:
+                preferred !== null && levels.includes(preferred) ? preferred : (levels[0] ?? "medium"),
               supportedReasoningEfforts: levels.map((reasoningEffort) => ({ reasoningEffort })),
               reasoningEffortConfigurable: levels.length > 0,
+              ...(contextWindow === null ? {} : { contextWindow }),
+              ...(maxOutputTokens === null ? {} : { maxOutputTokens }),
+              ...(inputModalities.length === 0 ? {} : { inputModalities }),
             });
           }
           return models;
@@ -620,8 +759,32 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
       });
     }
     const effort = getString(params, "effort") ?? getString(params, "reasoningEffort");
-    if (effort) yield* thread.rpc.request({ type: "set_thinking_level", level: effort === "none" ? "off" : effort });
+    if (effort) {
+      const level = piThinkingLevel(effort);
+      // The picker offers only mapped levels, so an unknown one is a malformed call, not a model limit.
+      if (!level) return yield* providerFailure(new Error(`Pi does not support the thinking level ${effort}.`));
+      yield* thread.rpc.request({ type: "set_thinking_level", level });
+    }
   });
+
+  /** The model id of this turn, without the provider prefix that the `pi` provider adds to an id. */
+  #resolvedModel(thread: PiThread, params: unknown): string {
+    const model = getString(params, "model") ?? getString(thread.params, "model") ?? "";
+    const separator = model.lastIndexOf("/");
+    return separator >= 0 ? model.slice(separator + 1) : model;
+  }
+
+  /**
+   * True when the prompt carries an image and the model has no image input. Pi's catalogue reports
+   * the modalities when it knows them; otherwise the dated DeepSeek table decides, where vision is
+   * flash-only. A provider other than DeepSeek passes: its documentation is not this table's.
+   */
+  #rejectsImages(model: string, params: unknown): boolean {
+    if (this.provider !== "deepseek" || !hasImageInput(params)) return false;
+    const reported = this.#modelInputs.get(model);
+    if (reported) return !reported.includes("image");
+    return !(staticDeepSeekModel(model)?.input.includes("image") ?? false);
+  }
 
   readonly #prompt = Effect.fn("PiAgentClient.prompt")(function* (
     this: PiAgentClient,
@@ -630,6 +793,13 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
   ) {
     if (thread.turn) return yield* providerFailure(new Error(sourceText("error.provider.piSessionBusy")));
     yield* this.#configure(thread, params);
+    const model = this.#resolvedModel(thread, params);
+    // Before `piPrompt` reads a local image, and before the prompt RPC: the API answers an image that
+    // the model cannot read with a placeholder, which reads as a successful turn (S2-5).
+    if (this.#rejectsImages(model, params))
+      return yield* providerFailure(
+        new Error(sourceText("error.provider.visionUnsupported", { model: model || "deepseek" })),
+      );
     const prompt = yield* piPrompt(params);
     const turn: PiTurn = {
       id: getString(params, "clientTurnId") ?? getString(params, "clientUserMessageId") ?? randomUUID(),
@@ -745,8 +915,14 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
   }
 
   #notify(method: string, thread: PiThread, params: DynamicRecord): void {
-    // Usage contains only validated numeric counters. Generic secret-name matching masks `*Tokens`.
-    const safe = method === "openbot/usage" ? params : redactMcpRecord(params, this.#secretValues());
+    // The two usage payloads hold only validated counters, a model id and a boolean, and they are the
+    // one pair that skips value redaction: generic secret-name matching masks `*Tokens`, so
+    // `redactMcpRecord` would replace `totalTokens`, and there is no provider text to hide (P1-8).
+    // Keep both numeric-only: a message, key or path added here would reach the renderer unredacted.
+    const safe =
+      method === "openbot/usage" || method === "thread/tokenUsage/updated"
+        ? params
+        : redactMcpRecord(params, this.#secretValues());
     this.emit("notification", {
       method,
       params: {
@@ -847,7 +1023,10 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
     // Native totals survive process release/resume. Per-message usage is not a cumulative counter.
     yield* thread.rpc.request({ type: "get_session_stats" }, 2_000).pipe(
       Effect.flatMap((stats) => providerSync(() => Schema.decodeUnknownSync(PiSessionUsage)(stats))),
-      Effect.map(({ tokens }) =>
+      Effect.map((stats) => {
+        const { tokens } = stats;
+        const model = getString(thread.params, "model");
+        const budget = piContextBudget(stats, staticDeepSeekModel(model)?.contextWindow ?? null);
         this.#notify("openbot/usage", thread, {
           usage: {
             inputTokens: tokens.input + tokens.cacheRead + tokens.cacheWrite,
@@ -855,8 +1034,18 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
             cachedReadTokens: tokens.cacheRead,
             cachedWriteTokens: tokens.cacheWrite,
           },
-        }),
-      ),
+          // Additive and numeric-only: the budget arm of `openbot/usage` reads it (see #notify).
+          ...(budget ? { tokenUsage: contextTokenUsage(budget), ...(model ? { model } : {}) } : {}),
+        });
+        // Beside `openbot/usage`, which cost collection reads. This method already arms the budget
+        // for the providers that report a window, so Pi reports the same numbers there too.
+        if (budget)
+          this.#notify("thread/tokenUsage/updated", thread, {
+            tokenUsage: contextTokenUsage(budget),
+            ...(model ? { model } : {}),
+          });
+        return undefined;
+      }),
       // A crashed host cannot answer telemetry; it must not block durable completion.
       Effect.catch(() => Effect.void),
     );
@@ -983,6 +1172,22 @@ export class PiAgentClient extends EventEmitter<ClientEvents> implements AgentCl
       return isRecord(value) && isString(value.type) ? [{ ...value, type: value.type }] : [];
     });
   }
+}
+
+/** The `thread/tokenUsage/updated` payload of a Pi session. The fill is an estimate: the counters are cumulative. */
+function contextTokenUsage(budget: PiContextBudget): DynamicRecord {
+  return {
+    last: { totalTokens: budget.usedTokens },
+    modelContextWindow: budget.contextWindow,
+    estimated: true,
+  };
+}
+
+/** True when a prompt input carries an image, before `piPrompt` reads or validates it. */
+function hasImageInput(params: unknown): boolean {
+  return getArray(params, "input").some(
+    (input) => isRecord(input) && (input.type === "image" || input.type === "localImage"),
+  );
 }
 
 function isNamespace(value: unknown): value is DynamicToolNamespace {

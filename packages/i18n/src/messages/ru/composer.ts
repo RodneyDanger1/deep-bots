@@ -137,4 +137,9 @@ export const messages = {
   "composer.newChat.action": "Новый чат",
   "composer.context.compact": "Сжать сейчас",
   "composer.context.compactFailed": "Не удалось сжать контекст. Повторите попытку.",
+  "composer.context.notReported": "Провайдер не сообщает контекст",
+  "composer.model.context": "Контекст: {tokens}",
+  "composer.model.maxOutput": "Макс. вывод: {tokens}",
+  "composer.model.imageInput": "Ввод изображений",
+  "composer.model.textOnly": "Только текст",
 } as const satisfies PartialTranslation<typeof source>;

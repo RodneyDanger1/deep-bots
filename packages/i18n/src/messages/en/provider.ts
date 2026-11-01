@@ -33,6 +33,9 @@ export const messages = defineMessages("provider", {
   "provider.status.unavailable": "Unavailable",
   "provider.status.checking": "Checking",
   "provider.status.off": "Off",
+  "provider.piCli.notDownloaded": "{name} runs in the Pi CLI, which is not downloaded.",
+  "provider.piCli.downloadFailed": "DeepSeek Bots could not download the Pi CLI. Try again.",
+  "provider.piCli.cancelDownloadFailed": "DeepSeek Bots could not cancel the Pi CLI download. Try again.",
   "provider.gemini.hostSignIn":
     "To connect Gemini, open OpenBot on the host and select Connect in Server settings > Providers. Google sign-in needs a browser on that host. Remote sign-in is not supported.",
 

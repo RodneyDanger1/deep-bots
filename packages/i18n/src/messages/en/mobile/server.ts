@@ -126,7 +126,8 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.hosted.stepActive": "in progress",
   "mobile.server.hosted.stepPending": "not started",
   "mobile.server.hosted.stepFailed": "failed",
-  "mobile.server.scan.notInvitation": "This QR code is not an OpenBot invitation.",
+  "mobile.server.scan.notInvitation":
+    "This code is not a server invitation. To connect this phone, sign out in Settings if you are signed in, then tap Scan QR code on the sign-in screen.",
   "mobile.server.scan.title": "Scan invitation",
   "mobile.server.role.owner": "owner",
   "mobile.server.role.admin": "admin",

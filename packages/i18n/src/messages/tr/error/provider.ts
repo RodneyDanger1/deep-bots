@@ -281,6 +281,19 @@ export const messages = {
     "{provider} kayıtlı API anahtarını reddetti. Ayarlar'da anahtarı değiştirin veya kaldırın, ardından yeniden deneyin.",
   "error.provider.keyProviderNoBalance":
     "Kayıtlı API anahtarının {provider} hesabında bakiye yok. Hesaba kredi ekleyin, ardından yeniden deneyin.",
+  "error.provider.keyProviderRateLimited": "{provider} istekleri sınırlıyor. Kısa süre sonra tekrar deneyin.",
+  "error.provider.keyProviderOverloaded":
+    "{provider} aşırı yüklü olduğu için yanıt veremedi. Kısa süre sonra tekrar deneyin.",
+  "error.provider.keyProviderInvalidParameters":
+    "{provider} istek parametrelerini reddetti. Modeli ve ayarları kontrol edip tekrar deneyin.",
+  "error.provider.keyProviderServerError":
+    "{provider} sunucu hatası verdi ve yanıt vermedi. Kısa süre sonra tekrar deneyin.",
+  "error.provider.keyProviderReasoningReplay":
+    "{provider} önceki turun akıl yürütmesini reddetti. Yeni bir sohbet başlatıp tekrar deneyin.",
+  "error.provider.contextWindowExceeded":
+    "Mesaj bu modelin bağlam penceresi için çok büyük. Mesajı kısaltın veya daha büyük pencereli bir model seçin.",
+  "error.provider.visionUnsupported":
+    "{model} görselleri okuyamaz. Görselleri okuyabilen bir model seçin veya yalnızca metin gönderin.",
   "error.provider.messageTooLarge":
     "OpenBot, {limit} MB'tan daha büyük bir mesaj gönderdiği için {provider} sağlayıcısını durdurdu.",
   "error.provider.customAgentIdInvalid":

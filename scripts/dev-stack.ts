@@ -16,7 +16,12 @@ import {
   readDevInstanceRecords,
   removeDevInstanceRecord,
 } from "./dev-automation/instance-registry";
-import { isProcessGroupAlive, type RecordedProcessState, verifyRecordedProcess } from "./dev-automation/registry-files";
+import {
+  attributableDescendantPids,
+  isProcessGroupAlive,
+  type RecordedProcessState,
+  verifyRecordedProcess,
+} from "./dev-automation/registry-files";
 import {
   type DevStackPort,
   type DevStackRecord,
@@ -129,6 +134,26 @@ async function stopDevStack(record: DevStackRecord): Promise<boolean> {
     );
     unresolved = true;
   };
+  const refuseUnreadable = (entry: { name: DevStackService; pid: number }): void => {
+    logger.error(
+      `The ${entry.name} process ${entry.pid} is gone and its descendants could not be read, ` +
+        "so nothing it started was signalled. Run `bun run dev:stop` again; if it repeats, " +
+        `find what holds ${record.ports.map((port) => port.port).join(", ")} with ${process.platform === "win32" ? "netstat -ano" : "lsof"}, and stop it yourself.`,
+    );
+    unresolved = true;
+  };
+
+  // Snapshot every recorded process's tree while it can still prove itself, and
+  // before any signal goes out. Windows signals one pid and no group, and the
+  // wrappers between a recorded pid and the port holder it started exit when
+  // the recorded pid does: walked after the supervisor is gone, the parent link
+  // that reached the holder is already dead, so the walk returns nothing while
+  // the port stays held. Taken here, the same walk sees the whole chain.
+  const descendantsBefore = new Map<number, number[] | null>();
+  for (const entry of record.processes) {
+    if (verifyRecordedProcess(entry) !== "live") continue;
+    descendantsBefore.set(entry.pid, attributableDescendantPids(entry, true));
+  }
 
   const supervisor: RecordedProcessState = verifyRecordedProcess({
     pid: record.supervisorPid,
@@ -144,12 +169,50 @@ async function stopDevStack(record: DevStackRecord): Promise<boolean> {
   }
 
   const groups: OwnedProcess[] = [];
+  const pushDescendants = (attributed: number[]): void => {
+    for (const pid of attributed) groups.push(ownedProcess(pid));
+  };
   for (const entry of record.processes) {
     const state = verifyRecordedProcess(entry);
+    const captured = descendantsBefore.get(entry.pid);
     if (state === "live") {
       groups.push(ownedProcess(entry.pid));
+      // The pre-stop walk is the one that can still see the chain; a second
+      // walk here is the fallback for an entry that could not be read then.
+      const attributed = captured === undefined ? attributableDescendantPids(entry, true) : captured;
+      if (attributed === null) {
+        logger.warn(
+          `Could not read the descendants of the ${entry.name} process ${entry.pid}, so any it started are not signalled.`,
+        );
+      } else {
+        pushDescendants(attributed);
+      }
     } else if (state === "unverified") {
       refuse(entry.pid, `the ${entry.name} process`);
+    } else if (process.platform === "win32") {
+      // The leader is gone - or the pid names a stranger now. The walk below is
+      // the authority, not a direct-children check: a port holder can be a
+      // grandchild whose parent already exited, and a `Get-CimInstance` that
+      // timed out answers "no children" just like a clean tree, which is how a
+      // stop command reports success while a port stays held.
+      const walked = attributableDescendantPids(entry);
+      if (walked === null && captured === undefined) {
+        refuseUnreadable(entry);
+      } else {
+        // Union of both reads: the pre-stop snapshot holds the chain the stop
+        // itself destroyed, and this walk catches anything the descendant
+        // started after that snapshot.
+        const attributed = [...new Set([...(captured ?? []), ...(walked ?? [])])];
+        if (attributed.length > 0) {
+          logger.info(
+            `The ${entry.name} process ${entry.pid} left ${attributed.length} attributed process(es) behind: ` +
+              `${attributed.join(", ")}. Stopping them.`,
+          );
+          pushDescendants(attributed);
+        } else if (walked === null) {
+          refuseUnreadable(entry);
+        }
+      }
     } else if (isProcessGroupAlive(entry.pid)) {
       // The leader is gone and its group is not. Something it started - the
       // Electron behind electron-vite - still holds the port, but the pid that
@@ -157,7 +220,7 @@ async function stopDevStack(record: DevStackRecord): Promise<boolean> {
       // signalling a group this record can no longer claim.
       logger.error(
         `The ${entry.name} process group ${entry.pid} outlived its leader and cannot be attributed to this stack. ` +
-          `Find what holds ${record.ports.map((port) => port.port).join(", ")} with ${process.platform === "win32" ? "netstat -ano" : "lsof"}, and stop it yourself.`,
+          `Find what holds ${record.ports.map((port) => port.port).join(", ")} with lsof, and stop it yourself.`,
       );
       unresolved = true;
     }

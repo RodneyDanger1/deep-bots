@@ -24,14 +24,45 @@ function parseIncomingLink(value: string): IncomingLink {
     // Not an agent link.
   }
   try {
-    const url = new URL(value);
-    const pairing = parseMobileConnectUrl(value);
-    if (pairing && url.username === "" && url.password === "" && url.port === "") {
-      return { kind: "pairing", url: value };
-    }
+    const pairing = mobileConnectPairingUrl(value);
+    if (pairing) return { kind: "pairing", url: pairing };
     return { kind: "plugin", url: createPluginShareUrl(parsePluginUrl(value)) };
   } catch {
     return { kind: "invalid" };
+  }
+}
+
+/** A Mobile Connect code: a pairing link, never an invitation for a server. */
+function mobileConnectPairingUrl(value: string): string | null {
+  const url = new URL(value);
+  if (url.username !== "" || url.password !== "" || url.port !== "") return null;
+  return parseMobileConnectUrl(value) ? value : null;
+}
+
+/** What a scanner read: a server invitation, a Mobile Connect pairing code, or neither. */
+export type ScannedLink = { kind: "invite"; url: string } | { kind: "pairing"; url: string } | { kind: "unsupported" };
+
+/**
+ * The link a scanner read. An invitation is checked first and only by its own parser, with the
+ * session's account service, so adding pairing codes here cannot admit an invitation for another
+ * service. A Mobile Connect code is a sign-in code for this phone, not a server invitation, so it
+ * goes to the pairing screen instead of the add-server screen.
+ */
+export function classifyScannedLink(
+  value: string,
+  options: { selfHostedApiOrigin?: string | undefined } = {},
+): ScannedLink {
+  try {
+    parseInviteUrl(value, { selfHostedApiOrigin: options.selfHostedApiOrigin });
+    return { kind: "invite", url: value };
+  } catch {
+    // Not an invitation for this session's account service.
+  }
+  try {
+    const pairing = mobileConnectPairingUrl(value);
+    return pairing ? { kind: "pairing", url: pairing } : { kind: "unsupported" };
+  } catch {
+    return { kind: "unsupported" };
   }
 }
 

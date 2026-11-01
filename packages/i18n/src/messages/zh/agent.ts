@@ -71,4 +71,10 @@ export const messages = {
   "agent.color.indigo": "靛蓝色",
   "agent.color.violet": "紫罗兰色",
   "agent.color.magenta": "洋红色",
+  "agent.error.providerAuth": "服务商拒绝了 API 密钥。请在设置中更新密钥后重试。",
+  "agent.error.providerBilling": "服务商账户没有余额。请在服务商账户充值后重试。",
+  "agent.error.providerRateLimit": "服务商已达到请求频率限额。请等待几分钟后重试。",
+  "agent.error.providerUnavailable": "服务商一侧出现故障。请几分钟后重试。",
+  "agent.error.providerRequest": "服务商拒绝了该请求。请选择其他模型后重试。",
+  "agent.error.providerUnreadable": "服务商发送了 OpenBot 无法显示的错误。请重试，或检查服务商账户。",
 } as const satisfies PartialTranslation<typeof source>;

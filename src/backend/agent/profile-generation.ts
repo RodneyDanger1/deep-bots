@@ -19,7 +19,7 @@ import {
   getString,
   isRecord,
 } from "../protocol";
-import { extractJsonObject, StructuredOutputError } from "../structured-output";
+import { extractJsonObject, isBlankStructuredOutput, StructuredOutputError } from "../structured-output";
 import { isBalanceDiagnostic, isPlanLimitDiagnostic } from "./provider-diagnostics";
 import { USAGE_LIMIT_METHOD } from "./usage-limit-gate";
 
@@ -51,7 +51,15 @@ export const generateProfile = Effect.fn("Agent.generateProfile")(function* (
   sections: SidebarSection[],
   cancelled?: () => boolean,
 ) {
-  const result = yield* generateTextWithoutTools(client, model, profilePrompt(input, sections), cancelled);
+  // A blank answer is the one failure a second request can resolve; see `isBlankStructuredOutput`.
+  const result = yield* generateTextWithoutTools(
+    client,
+    model,
+    profilePrompt(input, sections),
+    cancelled,
+    undefined,
+    true,
+  );
   const parsed = yield* Effect.try({
     try: () => extractJsonObject(result),
     catch: (cause) =>
@@ -74,31 +82,55 @@ export const generateProfile = Effect.fn("Agent.generateProfile")(function* (
 /** Receives each provider notification of a generation, such as its token usage. */
 export type GenerationObserver = (notification: AppServerNotification) => void;
 
+/**
+ * Runs the toolless generation, and asks once more when the answer is blank. The client stays
+ * started between the two turns: each turn opens its own ephemeral thread, so the retry costs one
+ * more provider request and not a new process. A second blank answer is a named failure, never an
+ * empty success, and a reply that has text but does not parse is not retried here.
+ */
+const toollessText = Effect.fnUntraced(function* (
+  client: AgentClient,
+  cwd: string,
+  model: AgentModelOption,
+  prompt: string,
+  cancelled: () => boolean,
+  observe: GenerationObserver | undefined,
+  retryOnBlank: boolean,
+) {
+  // `prepare` reads the cancellation after the temporary directory is made and before anything is
+  // spawned: that await is the window in which an endpoint change finds a client with no process to stop.
+  const answer = yield* toollessTurn(
+    client,
+    cwd,
+    model,
+    prompt,
+    Effect.suspend(() =>
+      cancelled()
+        ? Effect.fail(new ProfileGenerationFailed({ cause: new Error(CANCELLED_MESSAGE) }))
+        : startToolless(client),
+    ),
+    observe,
+  );
+  if (!retryOnBlank || !isBlankStructuredOutput(answer.text)) return answer.text;
+  if (cancelled()) return yield* new ProfileGenerationFailed({ cause: new Error(CANCELLED_MESSAGE) });
+  const retry = yield* toollessTurn(client, cwd, model, prompt, Effect.void, observe);
+  if (isBlankStructuredOutput(retry.text))
+    return yield* new ProfileGenerationFailed({ cause: new Error(sourceText("error.agent.profileBlank")) });
+  return retry.text;
+});
+
 export const generateTextWithoutTools = Effect.fn("Agent.generateTextWithoutTools")(function* (
   client: AgentClient,
   model: AgentModelOption,
   prompt: string,
   cancelled: () => boolean = () => false,
   observe?: GenerationObserver,
+  retryOnBlank = false,
 ) {
   let cleanupFailure: ProfileGenerationFailed | null = null;
   const result = yield* Effect.acquireUseRelease(
     makeToollessDirectory(),
-    (cwd) =>
-      toollessTurn(
-        client,
-        cwd,
-        model,
-        prompt,
-        // Read after the temporary directory is made and before anything is spawned: that await is the
-        // window in which an endpoint change finds a client with no process to stop.
-        Effect.suspend(() =>
-          cancelled()
-            ? Effect.fail(new ProfileGenerationFailed({ cause: new Error(CANCELLED_MESSAGE) }))
-            : startToolless(client),
-        ),
-        observe,
-      ).pipe(Effect.result),
+    (cwd) => toollessText(client, cwd, model, prompt, cancelled, observe, retryOnBlank).pipe(Effect.result),
     (cwd) =>
       Effect.gen(function* () {
         const stopped = yield* Effect.result(stopToolless(client));
@@ -110,7 +142,7 @@ export const generateTextWithoutTools = Effect.fn("Agent.generateTextWithoutTool
   );
   if (cleanupFailure) return yield* Effect.fail(cleanupFailure);
   if (Result.isFailure(result)) return yield* result.failure;
-  return result.success.text;
+  return result.success;
 });
 
 /** A temporary directory for a client without tools to run in. */

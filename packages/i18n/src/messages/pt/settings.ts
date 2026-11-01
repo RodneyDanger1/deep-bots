@@ -600,4 +600,16 @@ export const messages = {
   "settings.transfer.result.signInButton": "Entrar em {provider}",
   "settings.transfer.result.notImported": "Não importado",
   "settings.transfer.result.warnings": "Verifique estes itens",
+  "settings.providerKey.nextBilling":
+    "A conta do provedor não tem crédito. Adicione crédito na conta do provedor; uma chave nova não resolve.",
+  "settings.providerKey.nextRateLimit": "O provedor atingiu o limite. Aguarde alguns minutos e tente novamente.",
+  // The Providers tab: the way from the personal settings to the server's provider page.
+  "settings.tab.providers.description": "Baixe uma CLI, conecte uma conta e escolha o provedor padrão.",
+  "settings.tab.providers.title": "Provedores",
+  "settings.providers.open.title": "Configurações de provedores",
+  "settings.providers.open.description": "Baixe uma CLI ou conecte uma conta em {name}.",
+  "settings.providers.open.action": "Abrir configurações de provedores",
+  "settings.providers.noServer": "Nenhum servidor está ativo. Abra um servidor para gerenciar seus provedores.",
+  "settings.providers.managedByHost":
+    "Apenas o proprietário ou um administrador de {name} pode gerenciar seus provedores.",
 } as const satisfies PartialTranslation<typeof source>;

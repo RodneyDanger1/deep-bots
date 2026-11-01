@@ -84,6 +84,7 @@ export const messages = {
   "error.agent.profileEndpointsChanged":
     "De aangepaste endpoints zijn gewijzigd tijdens het maken. Probeer het opnieuw.",
   "error.agent.profileInvalid": "De aanbieder gaf een ongeldig profiel terug. Probeer je prompt aan te passen.",
+  "error.agent.profileBlank": "De aanbieder gaf een leeg profiel terug. Probeer het opnieuw of kies een ander model.",
   "error.agent.profileSectionUnavailable":
     "De gemaakte sectie is niet beschikbaar. Probeer het opnieuw of kies zelf een sectie.",
   "error.agent.profileTimedOut": "Het maken van het profiel duurde te lang. Probeer het opnieuw.",

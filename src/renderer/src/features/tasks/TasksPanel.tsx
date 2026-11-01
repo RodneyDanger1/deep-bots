@@ -57,7 +57,9 @@ export function TasksPanel(props: TasksPanelProps) {
       onOpenLink={(url) => void appPort().openUrl(url)}
       onAttachmentAction={openAttachment}
       approvals={approvals()}
-      // A question and a browser takeover wait by thread, as the thread tab reads them.
+      // A question and a browser takeover wait by thread, as the thread tab reads them. Both are
+      // structured waits from the host, so the derived stage comes from them and never from the
+      // free progress text of a task.
       waitsForAnswer={(task) => pendingPrompts()[attentionKey(task.agentId, task.threadId)] !== undefined}
       // The tab is written first, so the chat opens on it. Opening the chat closes the page.
       onOpenInChat={(task) => {

@@ -609,4 +609,16 @@ export const messages = {
   "settings.transfer.result.signInButton": "{provider} sağlayıcısında oturum aç",
   "settings.transfer.result.notImported": "İçe aktarılmadı",
   "settings.transfer.result.warnings": "Bunları kontrol edin",
+  "settings.providerKey.nextBilling":
+    "Sağlayıcı hesabında bakiye yok. Sağlayıcı hesabına bakiye ekleyin; yeni bir anahtar bunu düzeltmez.",
+  "settings.providerKey.nextRateLimit": "Sağlayıcı sınırına ulaştı. Birkaç dakika bekleyip tekrar deneyin.",
+  // The Providers tab: the way from the personal settings to the server's provider page.
+  "settings.tab.providers.description": "Bir CLI indirin, hesap bağlayın ve varsayılan sağlayıcıyı seçin.",
+  "settings.tab.providers.title": "Sağlayıcılar",
+  "settings.providers.open.title": "Sağlayıcı ayarları",
+  "settings.providers.open.description": "{name} üzerinde bir CLI indirin veya hesap bağlayın.",
+  "settings.providers.open.action": "Sağlayıcı ayarlarını aç",
+  "settings.providers.noServer": "Etkin sunucu yok. Sağlayıcılarını yönetmek için bir sunucu açın.",
+  "settings.providers.managedByHost":
+    "{name} sunucusunun sağlayıcılarını yalnızca sahibi veya bir yöneticisi yönetebilir.",
 } as const satisfies PartialTranslation<typeof source>;

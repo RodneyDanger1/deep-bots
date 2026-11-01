@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseInviteUrl, selfHostedApiOrigin } from "@openbot/contracts/invite-links";
 import {
@@ -6,9 +7,10 @@ import {
   type CentralAuthState,
   type HostStatus,
   IPC_ENDPOINTS,
+  LOCAL_SERVER_ID,
 } from "@openbot/contracts/ipc";
-import { createFormat, resolveLocale, translateFor } from "@openbot/i18n";
-import { localizeSourceText } from "@openbot/i18n/source";
+import { createFormat, resolveLocale, translateFor, type AppTranslate } from "@openbot/i18n";
+import { localizeSourceText, sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { createRemoteDirectoryRefresh } from "@openbot/team-client/remote-directory";
 import { Effect, Semaphore } from "effect";
@@ -115,6 +117,7 @@ import {
   createMainWindowController,
   createMainWindowHolder,
   hideWindowsForQuit,
+  type RendererFault,
   showMainWindow,
 } from "./main-window";
 import { ensureMacApplicationPresence, secondLaunchResponse } from "./main-window-state";
@@ -123,6 +126,20 @@ import { startMainLog } from "./provider-log";
 import { watchRemoteHostDirectory } from "./remote-server-host-directory";
 import { createRendererForwarders } from "./renderer-forwarders";
 import { sendToRenderer } from "./renderer-ipc";
+import {
+  beginRun,
+  mainLogFile,
+  markRunComplete,
+  openLogsLabel,
+  type PreviousRun,
+  recordRunExit,
+  rendererStateCode,
+  type RendererRecoveryState,
+  runStateCode,
+  RUN_STATE_FILE,
+  sanitizeFailureMessage,
+  startupFailureCode,
+} from "./runtime-health";
 import { RoutineWake } from "./routine-wake";
 import { takeServerModeEnvironment } from "./server-mode";
 import { configureContentSecurityPolicy, configureRendererPermissions } from "./session-configuration";
@@ -160,6 +177,8 @@ function hideExceptionErrorBox(): void {
 
 type ExitReason = "main_window_closed" | "signal" | "session_end" | "quit";
 let exitRecorded = false;
+/** The reason the first exit request named, which the clean run record quotes. */
+let exitReasonRecorded: ExitReason | null = null;
 
 /**
  * Records once why OpenBot quits, in the main log and in the trace, before the teardown closes the
@@ -169,10 +188,29 @@ let exitRecorded = false;
 function recordExit(reason: ExitReason): void {
   if (exitRecorded) return;
   exitRecorded = true;
+  exitReasonRecorded = reason;
   logger.info(`Quitting: ${reason}.`);
+  try {
+    recordRunExit(runStatePath, process.pid, reason);
+  } catch (error) {
+    logger.warn("Could not record why this run is quitting.", toLogValue(error));
+  }
   if (!crashTrace) return;
   crashTrace.record({ kind: "exit", name: reason, durationMs: 0, outcome: "requested" });
   Effect.runFork(crashTrace.flush());
+}
+
+/**
+ * Marks the run as finished. Only an exit that completed its own shutdown calls this: a process
+ * that was killed, or held by a request that never returned, keeps the record that makes the next
+ * start report it.
+ */
+function markRunClean(reason: string): void {
+  try {
+    markRunComplete(runStatePath, process.pid, reason);
+  } catch (error) {
+    logger.warn("Could not record the clean exit. The next start may report this run as a crash.", toLogValue(error));
+  }
 }
 
 function reportMainProcessFailure(origin: "uncaughtException" | "unhandledRejection", error: unknown): void {
@@ -180,6 +218,114 @@ function reportMainProcessFailure(origin: "uncaughtException" | "unhandledReject
   if (!crashTrace) return;
   crashTrace.record({ kind: "crash", name: origin, durationMs: 0, outcome: "reported" });
   Effect.runFork(crashTrace.flush());
+}
+
+/** Shows the main log file, or its folder when the first line has not been written yet. */
+function openLogsFolder(): void {
+  const logFile = mainLogFile(logsDirectory);
+  if (existsSync(logFile)) {
+    shell.showItemInFolder(logFile);
+    return;
+  }
+  void shell.openPath(join(logsDirectory, "main")).then((failure) => {
+    if (failure) logger.warn(`Could not open the log folder: ${failure}`);
+  });
+}
+
+/** The code and the one sentence a health notice shows. */
+function healthNoticeDetail(code: string, translate: AppTranslate): string {
+  return `${code}\n${translate("startup.failedBody", { message: "" }).trim()}`;
+}
+
+/**
+ * The last run did not finish its own shutdown. A process that is killed, loses power or never
+ * leaves `node::FreeEnvironment` writes no clean record, so this notice is the first place the user
+ * can see it. The code is the one in `main.log`, and the button opens that file.
+ */
+function showPreviousRunNotice(window: BrowserWindow, translate: AppTranslate): void {
+  if (previousRun.kind !== "unexpected") return;
+  const code = runStateCode(previousRun.record);
+  const reason = previousRun.record.exitReason;
+  logger.warn(`The previous run did not finish its own shutdown (${code}${reason ? `, after ${reason}` : ""}).`);
+  crashTrace?.record({ kind: "crash", name: "previous-run", durationMs: 0, outcome: "unexpected" });
+  void dialog
+    .showMessageBox(window, {
+      type: "warning",
+      title: translate("notification.failed"),
+      message: translate("notification.failed"),
+      detail: healthNoticeDetail(code, translate),
+      buttons: [openLogsLabel(translate), translate("common.close")],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+    })
+    .then(({ response }) => {
+      if (response === 0) openLogsFolder();
+    })
+    .catch((error: unknown) => logger.warn("Could not show the notice about the previous run.", toLogValue(error)));
+}
+
+/**
+ * The one automatic reload did not bring the page back. The state is named by a code that the log
+ * also carries, so the window is not silently dead and a report can find the same line.
+ */
+function showRendererRecoveryDialog(window: BrowserWindow, state: RendererRecoveryState): void {
+  const translate = services?.language.translate ?? translateFor(resolveLocale("system", app.getLocale()));
+  const code = rendererStateCode(state);
+  logger.error(`The page did not come back after a reload (${code}).`);
+  crashTrace?.record({ kind: "crash", name: "renderer-unrecovered", durationMs: 0, outcome: "unstable" });
+  void dialog
+    .showMessageBox(window, {
+      type: "warning",
+      title: translate("notification.failed"),
+      message: translate("notification.failed"),
+      detail: healthNoticeDetail(code, translate),
+      buttons: [translate("common.retry"), openLogsLabel(translate), translate("common.close")],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true,
+    })
+    .then(({ response }) => {
+      if (response === 0) {
+        void windows
+          .loadRenderer(window)
+          .catch((error: unknown) => logger.error("Could not reload the page again.", toLogValue(error)));
+      } else if (response === 1) openLogsFolder();
+    })
+    .catch((error: unknown) => logger.warn("Could not show the page failure notice.", toLogValue(error)));
+}
+
+/**
+ * Watches the one network state Electron can answer without a request. The first reading sets the
+ * state; a drop shows a notice only after a second reading, so a moment between two networks does
+ * not raise one. A headless server has no one to notify and does not run this.
+ */
+function startNetworkStateMonitor(
+  options: { isOnline: () => boolean; onLost: () => void; onRestored: () => void },
+  intervalMs = 30_000,
+): () => void {
+  let online = options.isOnline();
+  let offlineChecks = 0;
+  const tick = (): void => {
+    const next = options.isOnline();
+    if (next === online) {
+      if (!online && offlineChecks < 2) {
+        offlineChecks += 1;
+        if (offlineChecks === 2) options.onLost();
+      }
+      return;
+    }
+    online = next;
+    offlineChecks = next ? 0 : 1;
+    if (next) options.onRestored();
+  };
+  const timer = setInterval(tick, intervalMs);
+  timer.unref();
+  powerMonitor.on("resume", tick);
+  return () => {
+    clearInterval(timer);
+    powerMonitor.off("resume", tick);
+  };
 }
 
 // Before any network call: a TLS-inspecting company network needs the roots that IT installed.
@@ -244,17 +390,31 @@ if (commandLineUserDataDirectory) {
 app.setName("OpenBot");
 app.enableSandbox();
 if (process.platform === "win32") app.setAppUserModelId("app.openbot.desktop");
+// After every `app.setPath("userData")` above: the logs and the run record share this directory.
+const logsDirectory = join(app.getPath("userData"), "logs");
+const runStatePath = join(app.getPath("userData"), RUN_STATE_FILE);
+/** The state before this run, which the first window reports when the last run did not finish. */
+let previousRun: PreviousRun = { kind: "first-run" };
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 // A second launch exits at once and must not write into the files of the instance that runs.
 if (hasSingleInstanceLock) {
-  startMainLog(join(app.getPath("userData"), "logs"));
+  startMainLog(logsDirectory);
+  // Before anything else can fail: the next launch reads this record to tell a quit from a crash.
+  try {
+    previousRun = beginRun(runStatePath, { pid: process.pid, startedAt: new Date().toISOString() });
+  } catch (error) {
+    logger.warn("Could not record this run. A crash of this run cannot be reported at the next start.", toLogValue(error));
+  }
+  if (previousRun.kind === "unreadable") {
+    logger.warn(`The record of the previous run could not be read (${previousRun.reason}); its exit is unknown.`);
+  }
   // Crash dumps stay in `crashDumps` on this computer. Crashpad removes old reports itself. Without
   // them, a window that disappeared on Windows left nothing to tell a crash from a quit (#2675).
   crashReporter.start({ uploadToServer: false });
   // Linux AppImage: the handler must stop before the AppImage unmounts (#3066).
   stopAppImageCrashpadHandlerAtExit();
   // A file request that never finishes must not keep the process and its lock after an exit.
-  stopStuckExitAfterLimit(join(app.getPath("userData"), "logs"));
+  stopStuckExitAfterLimit(logsDirectory);
 }
 // Linux: the GPU stays on until it fails on this computer (#992). `userData` has its final path here.
 configureLinuxGpu({
@@ -327,6 +487,8 @@ const remoteAccountGate = Semaphore.makeUnsafe(1);
 const macHapticFeedback = new MacHapticFeedback();
 let isQuitting = false;
 let shutdownStarted = false;
+/** True only after `prepareForShutdown` wrote the clean run record; a quit before it is held. */
+let shutdownComplete = false;
 let systemSessionEnding = false;
 let systemSessionEndFlushStarted = false;
 let relaunchRequested = false;
@@ -408,6 +570,7 @@ const {
   forwardTeamPresence,
   forwardDirectMessage,
   forwardDirectTyping,
+  forwardMachineAlert,
 } = createRendererForwarders({
   getMainWindow: () => windowHolder.current,
   // A function: the window controller is made after the forwarders, and no event comes before it.
@@ -449,6 +612,12 @@ const windows = createMainWindowController({
     filePreviewPages.clear();
     services?.browser.releaseUserControlHeldBy({ kind: "local" });
   },
+  onRendererFault: (fault: RendererFault) => {
+    logger.error(`The page stopped (${fault.kind}${fault.reason ? `: ${fault.reason}` : ""}). One reload follows.`);
+    crashTrace?.record({ kind: "crash", name: `renderer-${fault.kind}`, durationMs: 0, outcome: "reported" });
+  },
+  onRendererRecoveryFailed: (window: BrowserWindow, state: RendererRecoveryState) =>
+    showRendererRecoveryDialog(window, state),
   onMainWindowCreated: (window) => {
     attachWindowsSessionEndHandlers(window);
     attachQuitOnMainWindowClose(window);
@@ -538,6 +707,8 @@ function attachWindowsSessionEndHandlers(window: BrowserWindow): void {
   });
   window.on("session-end", () => {
     recordExit("session_end");
+    // Windows ends the process itself, so this is the last point a clean record can be written.
+    markRunClean("session_end");
     systemSessionEnding = true;
     isQuitting = true;
     // Windows can stop the Computer Use driver first, and sends no `before-quit` for a session end.
@@ -1321,7 +1492,6 @@ if (!hasSingleInstanceLock) {
       remoteServers.on("presence", forwardTeamPresence);
       remoteServers.on("directMessage", forwardDirectMessage);
       remoteServers.on("directTyping", forwardDirectTyping);
-      // Machine alerts are hidden for now: the check does not start, and no alert notification shows.
       // The selected server connects while the window loads. Its WebRTC setup takes seconds, and
       // the first screen waits for it. The other servers start after the load, below. The connection
       // needs the signed-in account, so it starts only after the account loads. A failed account
@@ -1342,6 +1512,7 @@ if (!hasSingleInstanceLock) {
       updater.on("status", (status) => {
         if (!shutdownStarted || status.errorCode !== "install_failed") return;
         logger.error("OpenBot update install failed after shutdown preparation and will exit now.");
+        markRunClean("update_install_failed");
         app.exit(0);
       });
       built.requestedUpdate.on("preference", forwardUpdatePreference);
@@ -1354,6 +1525,13 @@ if (!hasSingleInstanceLock) {
       // Before the renderer loads: the trust boundary and every protocol it fetches through have to
       // be in place before the first request can arrive.
       registerIpcHandlers(built);
+      /*
+       * The one-minute machine check was constructed but never started, so a full disk or a busy
+       * server alerted nobody. It samples this computer and writes nothing anywhere: the alert is a
+       * desktop notification to the responsible owner or admin, under the existing notification
+       * setting. It also runs on a headless server, where the host sends the alerts to its members.
+       */
+      built.machineAlerts.start();
       if (localServerChild) {
         // No window, menu, tray, Dynamic Island or renderer: the desktop app is the interface.
         const childRoutineWake = new RoutineWake({ routines: service, isOnline: () => net.isOnline() });
@@ -1384,6 +1562,18 @@ if (!hasSingleInstanceLock) {
         unsubscribeBackgroundTray();
         tray.destroy();
       });
+      /*
+       * The check names a member, or `null` for the owner of this computer. A notification on this
+       * computer is right only for the local owner: another admin's alert belongs to their devices,
+       * and `machine.pending` sends it to them when they connect.
+       */
+      const stopMachineAlertNotifications = built.machineAlerts.subscribe((memberId, event) => {
+        const account = built.centralAuth.getState();
+        const localMemberId = account.status === "signed_in" ? account.user.id : null;
+        if (memberId !== null && memberId !== localMemberId) return;
+        forwardMachineAlert(LOCAL_SERVER_ID, event);
+      });
+      teardown.push(0, "machine alert notifications", stopMachineAlertNotifications);
       // One place turns a language change into every visible consequence: the menu is built again
       // because a native label cannot be changed in place, and every window is told, including the
       // Dynamic Island, which has no Settings of its own to read the new value from.
@@ -1427,6 +1617,31 @@ if (!hasSingleInstanceLock) {
       reconcileDynamicIsland();
       await windows.loadRenderer(mainWindow);
       performance.mark("openbot:renderer-loaded");
+      // The first point where a window exists to carry a notice about the previous run.
+      showPreviousRunNotice(mainWindow, language.translate);
+      /*
+       * A drop that lasts one reading is usually a network change, not an outage. The notice is
+       * shown after the second reading, while the first reading after startup only sets the state.
+       * The copy is the existing source sentence for a network failure, localized for this window.
+       */
+      const stopNetworkStateMonitor = startNetworkStateMonitor({
+        isOnline: () => net.isOnline(),
+        onLost: () => {
+          logger.warn("Network state: offline.");
+          if (!Notification.isSupported() || !built.notificationPreference.get().desktopNotifications) return;
+          const notification = new Notification({
+            title: language.translate("composer.providerWait.offlineTitle"),
+            body: localizeSourceText(sourceText("error.kind.network"), language.locale),
+          });
+          notification.on("click", () => {
+            const current = windowHolder.current;
+            if (current && !current.isDestroyed()) showMainWindow(current);
+          });
+          showRetainedNotification(notification);
+        },
+        onRestored: () => logger.info("Network state: online."),
+      });
+      teardown.push(0, "network state monitor", stopNetworkStateMonitor);
       // `sendToRenderer` dropped the server changes made while the window loaded: the host list and
       // the connection of the selected server. The renderer can have read the list before them.
       forwardServers(remoteServers.list());
@@ -1548,18 +1763,29 @@ if (!hasSingleInstanceLock) {
         return;
       }
       // The Windows error box ends the text at a NUL character, so control characters are replaced.
-      const message = (error instanceof Error ? error.message : String(error)).replace(/[^\P{Cc}\n\t]/gu, "�");
-      logger.error("OpenBot failed to start:", toLogValue(error));
+      const message = sanitizeFailureMessage(error instanceof Error ? error.message : String(error));
+      // A support report quotes one code, and the same code heads the stack line in main.log.
+      const code = startupFailureCode(error);
+      logger.error(`OpenBot failed to start (${code}):`, toLogValue(error));
+      // The box is the last chance to say what happened, so a deliberate startup failure must not
+      // also appear as a crash at the next launch.
+      markRunClean("startup_failed");
       // A server has nobody at its virtual display to close the box, and the box blocks the quit. A
       // server on this computer has no window: the app that started it reports the failed start.
       if (!serverMode && !hostedServer && !localServerChild) {
         // The services, and with them the saved language, may not exist yet. Then the system language applies.
         const locale = services?.language.locale ?? resolveLocale("system", app.getLocale());
         const translate = services?.language.translate ?? translateFor(locale);
-        dialog.showErrorBox(
-          translate("startup.failedTitle"),
-          translate("startup.failedBody", { message: localizeSourceText(message, locale) }),
-        );
+        const reply = dialog.showMessageBoxSync({
+          type: "error",
+          title: translate("startup.failedTitle"),
+          message: `${translate("startup.failedBody", { message: localizeSourceText(message, locale) })}\n\n${code}`,
+          buttons: [openLogsLabel(translate), translate("common.close")],
+          defaultId: 0,
+          cancelId: 1,
+          noLink: true,
+        });
+        if (reply === 0) openLogsFolder();
       }
       app.quit();
     });
@@ -1582,9 +1808,15 @@ app.on("before-quit", (event) => {
       void Effect.runPromise(services.providerRuntimes.stop()).catch((error) =>
         logger.warn("Provider runtimes did not stop.", toLogValue(error)),
       );
+    markRunClean("session_end");
     return;
   }
-  if (shutdownStarted) return;
+  if (shutdownStarted) {
+    // A window closing while the teardown runs would otherwise end the process before the run
+    // record is marked clean, so the next launch reports a crash after an ordinary close.
+    if (!shutdownComplete) event.preventDefault();
+    return;
+  }
   event.preventDefault();
   void prepareForShutdown().finally(() => app.quit());
 });
@@ -1646,4 +1878,7 @@ async function prepareForShutdown(deadlineMs = SHUTDOWN_DEADLINE_MS): Promise<vo
   services?.dynamicIsland.destroy();
   macHapticFeedback.destroy();
   await teardown.runAll();
+  // The last write of this process: only a run that got here ended on purpose.
+  markRunClean(exitReasonRecorded ?? "quit");
+  shutdownComplete = true;
 }

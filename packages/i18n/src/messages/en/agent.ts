@@ -76,4 +76,13 @@ export const messages = defineMessages("agent", {
   "agent.color.indigo": "Indigo",
   "agent.color.violet": "Violet",
   "agent.color.magenta": "Magenta",
+  // What a reader can do about a provider failure whose text no named error key matches.
+  "agent.error.providerAuth": "The provider rejected the API key. Update the key in Settings, then try again.",
+  "agent.error.providerBilling":
+    "The provider account has no credit. Add funds in the provider account, then try again.",
+  "agent.error.providerRateLimit": "The provider is at its rate limit. Wait a few minutes, then try again.",
+  "agent.error.providerUnavailable": "The provider failed on its side. Try again in a few minutes.",
+  "agent.error.providerRequest": "The provider refused the request. Choose another model, then try again.",
+  "agent.error.providerUnreadable":
+    "The provider sent an error that OpenBot cannot show. Try again, or check the provider account.",
 });

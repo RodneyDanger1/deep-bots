@@ -38,6 +38,9 @@ export const messages = {
   "provider.status.checking": "Vérification",
 
   "provider.status.off": "Désactivé",
+  "provider.piCli.notDownloaded": "{name} s’exécute dans la Pi CLI, qui n’est pas téléchargée.",
+  "provider.piCli.downloadFailed": "DeepSeek Bots n’a pas pu télécharger la Pi CLI. Réessayez.",
+  "provider.piCli.cancelDownloadFailed": "DeepSeek Bots n’a pas pu annuler le téléchargement de la Pi CLI. Réessayez.",
   "provider.gemini.hostSignIn":
     "Pour connecter Gemini, ouvrez OpenBot sur l’hôte et sélectionnez « Connecter » dans Réglages du serveur > Fournisseurs. La connexion Google nécessite un navigateur sur cet hôte. La connexion à distance n’est pas prise en charge.",
   // Which account tier the OpenCode row runs on. It shows only while it adds to the runtime

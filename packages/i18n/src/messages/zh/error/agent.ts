@@ -62,6 +62,7 @@ export const messages = {
   "error.agent.selectedGone": "所选的助手已不存在。",
   "error.agent.profileEndpointsChanged": "生成期间自定义端点发生了变更，请重试。",
   "error.agent.profileInvalid": "服务商返回了无效的资料，请试着修改提示词。",
+  "error.agent.profileBlank": "服务商返回了空的资料。请重试，或选择其他模型。",
   "error.agent.profileSectionUnavailable": "生成的章节不可用，请重试或手动选择章节。",
   "error.agent.profileTimedOut": "资料生成超时，请重试。",
   "error.agent.profileDisconnected": "生成资料时服务商连接断开。",

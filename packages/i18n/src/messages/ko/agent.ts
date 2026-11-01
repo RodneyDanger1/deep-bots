@@ -75,4 +75,10 @@ export const messages = {
   "agent.color.indigo": "남색",
   "agent.color.violet": "보라",
   "agent.color.magenta": "자홍",
+  "agent.error.providerAuth": "제공자가 API 키를 거부했어요. 설정에서 키를 업데이트한 후 다시 시도하세요.",
+  "agent.error.providerBilling": "제공자 계정에 잔액이 없어요. 제공자 계정에 충전한 후 다시 시도하세요.",
+  "agent.error.providerRateLimit": "제공자가 요청 한도에 도달했어요. 몇 분 기다린 후 다시 시도하세요.",
+  "agent.error.providerUnavailable": "제공자 쪽에서 실패했어요. 몇 분 후에 다시 시도하세요.",
+  "agent.error.providerRequest": "제공자가 요청을 거부했어요. 다른 모델을 선택한 후 다시 시도하세요.",
+  "agent.error.providerUnreadable": "제공자가 OpenBot이 표시할 수 없는 오류를 보냈어요. 다시 시도하거나 제공자 계정을 확인하세요.",
 } as const satisfies PartialTranslation<typeof source>;

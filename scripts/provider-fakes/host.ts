@@ -1,6 +1,7 @@
 // The test side of the fake agents in `agents/`: install one as an executable, read its log, and drive
 // the real `AgentClient` through a thread and a turn.
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { AgentClient } from "../../src/backend/agent-client";
 import { runCauseEffect } from "../../src/backend/effect-boundary";
@@ -10,19 +11,55 @@ import type { CustomProviderCipher } from "../../src/main/custom-provider-store"
 /**
  * Writes an executable that starts `agents/<agent>.ts` with the Bun that runs the test. `env` is set
  * for this executable only, so one test can run several fakes that act differently.
+ *
+ * On Windows a POSIX `#!/bin/sh` file is not executable, and CreateProcess cannot start it. There the
+ * launcher is compiled to a small native executable by the same Bun; the fake script is bundled at
+ * build time, so no product runtime or shell is involved. The compiled file is renamed to the exact
+ * path the caller gives, because the test doubles do not depend on a file extension.
  */
 export async function installFakeAgent(
   executable: string,
   agent: string,
   env: Readonly<Record<string, string>> = {},
-): Promise<void> {
+): Promise<string> {
   const file = resolve(import.meta.dirname, "agents", `${agent}.ts`);
-  const exports = Object.entries(env)
-    .map(([name, value]) => `export ${name}=${JSON.stringify(value)}\n`)
-    .join("");
   await mkdir(dirname(executable), { recursive: true });
-  await writeFile(executable, `#!/bin/sh\n${exports}exec "${process.execPath}" "${file}" "$@"\n`);
-  await chmod(executable, 0o755);
+  if (process.platform !== "win32") {
+    const exports = Object.entries(env)
+      .map(([name, value]) => `export ${name}=${JSON.stringify(value)}\n`)
+      .join("");
+    await writeFile(executable, `#!/bin/sh\n${exports}exec "${process.execPath}" "${file}" "$@"\n`);
+    await chmod(executable, 0o755);
+    return executable;
+  }
+  const launcherDirectory = resolve(import.meta.dirname, "..", "..", ".openbot-build", "provider-fakes");
+  await mkdir(launcherDirectory, { recursive: true });
+  const launcher = resolve(launcherDirectory, `${agent}-${process.pid}-${Date.now()}.ts`);
+  const relative = `../../scripts/provider-fakes/agents/${agent}.ts`;
+  const source =
+    `const env = ${JSON.stringify(env)};\n` +
+    `Object.assign(process.env, env);\n` +
+    `await import(${JSON.stringify(relative)});\n`;
+  await writeFile(launcher, source);
+  const compiled = `${executable}.exe`;
+  const result = spawnSync(
+    process.execPath,
+    [
+      "build",
+      "--compile",
+      "--no-compile-autoload-dotenv",
+      "--no-compile-autoload-bunfig",
+      launcher,
+      "--outfile",
+      compiled,
+    ],
+    { cwd: resolve(import.meta.dirname, "..", ".."), encoding: "utf8", windowsHide: true, timeout: 120_000 },
+  );
+  if (result.status !== 0) {
+    throw new Error(`Could not build the Windows fake agent ${agent}: ${result.stderr.trim()}`);
+  }
+  await rm(launcher, { force: true }).catch(() => undefined);
+  return compiled;
 }
 
 /** Reads the JSON lines that a fake wrote with `logEntry`. A missing file is an empty log. */
@@ -50,7 +87,7 @@ export interface ThreadStartParams {
 
 export async function startThread(client: AgentClient, params: ThreadStartParams): Promise<string> {
   const response = await runCauseEffect(client.request("thread/start", params, (value) => value));
-  const id = JSON.stringify(response).match(/"id":"([^"]+)"/)?.[1];
+  const id = getString(getRecord(response, "thread"), "id");
   if (!id) throw new Error("thread/start answers no thread id.");
   return id;
 }

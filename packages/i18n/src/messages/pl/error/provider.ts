@@ -275,6 +275,19 @@ export const messages = {
     "{provider} odrzucił zapisany klucz API. Zastąp lub usuń klucz w Ustawieniach, a następnie spróbuj ponownie.",
   "error.provider.keyProviderNoBalance":
     "Konto {provider} zapisanego klucza API nie ma środków. Doładuj konto, a następnie spróbuj ponownie.",
+  "error.provider.keyProviderRateLimited": "{provider} ogranicza liczbę żądań. Spróbuj ponownie za chwilę.",
+  "error.provider.keyProviderOverloaded":
+    "{provider} jest przeciążony i nie mógł odpowiedzieć. Spróbuj ponownie za chwilę.",
+  "error.provider.keyProviderInvalidParameters":
+    "{provider} odrzucił parametry żądania. Sprawdź model i ustawienia, a następnie spróbuj ponownie.",
+  "error.provider.keyProviderServerError":
+    "U {provider} wystąpił błąd serwera i nie było odpowiedzi. Spróbuj ponownie za chwilę.",
+  "error.provider.keyProviderReasoningReplay":
+    "{provider} odrzucił rozumowanie z poprzedniej tury. Rozpocznij nowy czat, a następnie spróbuj ponownie.",
+  "error.provider.contextWindowExceeded":
+    "Wiadomość jest za duża dla okna kontekstu tego modelu. Skróć ją lub wybierz model z większym oknem.",
+  "error.provider.visionUnsupported":
+    "{model} nie potrafi czytać obrazów. Wybierz model, który potrafi czytać obrazy, albo wyślij tylko tekst.",
   "error.provider.messageTooLarge":
     "OpenBot zatrzymał {provider}, ponieważ wysłał on wiadomość większą niż {limit} MB.",
   "error.provider.customAgentIdInvalid":
