@@ -5,8 +5,14 @@ affiliated with or endorsed by DeepSeek or Synthetify Labs. The upstream name re
 identifiers, saved-data paths and released wire names, because changing them would break existing
 profiles and the frozen Team API contracts.
 
-[![CI](https://github.com/nightly-labs/openbot/actions/workflows/ci.yml/badge.svg)](https://github.com/nightly-labs/openbot/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-PolyForm_Noncommercial_1.0.0-blue.svg)](LICENSE)
+[CI status](https://github.com/RodneyDanger1/deep-bots/actions) · [Completion plan](docs/plans/DEEPSEEK-BOTS-COMPLETION-PLAN.md)
+
+**Fork status.** This public repository is a source-available DeepSeek Bots fork. The desktop app
+launches, the managed Pi CLI and DeepSeek provider start, and real `deepseek-flash` turns have
+completed with dated citations and context reporting. There are **no signed installers and no rebuilt
+Android APK for this fork yet**, and the fork's CI is not yet green. Do not install an upstream
+OpenBot release expecting the DeepSeek Bots work.
 
 OpenBot is a local-first desktop workspace for persistent AI teammates. It supports the local
 [Codex App Server](https://learn.chatgpt.com/docs/app-server) and
@@ -22,6 +28,20 @@ messaging in one desktop app.
 > Run only agents and tasks you trust, keep backups, and review [Security](#security) before use.
 
 ## What works
+
+DeepSeek-specific in this fork:
+
+- **DeepSeek provider:** the managed Pi CLI is installed from the provider page; the API key is entered
+  only in the encrypted provider dialog and is never written to the workspace.
+- **Models and effort:** `deepseek-flash` is the default model; `deepseek-v4-pro` is available; effort
+  is shown as low, high or max.
+- **Large context:** the 1,048,576-token DeepSeek window is reported through the host context path, with
+  an explicit “not reported” state when the provider does not supply it.
+- **Bot content:** the import pack adds 12 agents, 3 channels and 6 separately installed skill packs.
+- **Verified live:** two real `deepseek-flash` turns completed; one returned dated citations; the
+  context display reached 46%.
+
+General OpenBot capabilities:
 
 - Prompt-driven agent creation and editing on desktop and mobile, with editable instructions, avatar, and section review before saving.
 - Persistent agents backed by independent Codex, Claude, Grok, OpenCode, Gemini, Cursor, or Cline sessions and local workspaces.
@@ -41,6 +61,28 @@ Grok connects to xAI, Gemini connects to Google, Cursor connects to Cursor, Clin
 visited pages use the network, and installed plugins may connect to their own services.
 
 ## Install
+
+> [!IMPORTANT]
+> **This fork has no signed installer or release download yet.** The macOS, Windows, Linux, Nix and
+> Docker instructions below describe the upstream OpenBot project and do not contain the DeepSeek Bots
+> changes. Build this fork from source until its own signed releases exist.
+
+### Build from source
+
+Requirements: Bun 1.4.2, Node.js 24 (the version in `.nvmrc`), and the platform build tools that the
+upstream project documents.
+
+```bash
+git clone https://github.com/RodneyDanger1/deep-bots.git
+cd deep-bots
+bun install --frozen-lockfile
+bun run dev
+```
+
+The development app starts the local Auth API, Signal service and Electron client. Run `bun run build`
+to produce the renderer and main-process bundles. This fork has not published a signed installer.
+
+### Upstream installers (not this fork)
 
 OpenBot supports macOS 13 or newer on Apple silicon or Intel, Windows 10 or newer on x64 systems, and x64
 or arm64 Linux as an AppImage.
@@ -237,8 +279,8 @@ iex "& {$(irm https://bun.com/install.ps1)} -Version 1.4.2"
 ```
 
 ```bash
-git clone https://github.com/nightly-labs/openbot.git
-cd openbot
+git clone https://github.com/RodneyDanger1/deep-bots.git
+cd deep-bots
 bun install --frozen-lockfile
 bun run codex:doctor
 bun run dev
@@ -314,6 +356,28 @@ Optional scripts, references, and assets follow the Codex skill folder structure
 Open **Server settings → Import** on this computer, or on a joined server in the desktop app or the browser client. Every member of a server can import, not only an owner or admin. Add the [OpenBot export agent](https://x.ai/bot/gI0XdhhDYPJeyQaqQBC0O) to Grok Bot and say "Export my agents for OpenBot". It saves one `.zip` file to Downloads. Choose that file in OpenBot, select the agents, and import them.
 
 The import adds each agent's name, instructions, avatar, skills, routines, and memories. Workspace files are copied to `imported/` in the agent's workspace if you included them. Chat history is not copied: the export agent keeps the important facts as memories. For this computer, the file is read here and is not uploaded. For a joined server, the file (at most 100 MB) goes to the computer that runs that server through the encrypted host connection. A member's import uses a skill that the server already has instead of changing it. The export skill and its format are in [`resources/agent-import/grok-bot/SKILL.md`](resources/agent-import/grok-bot/SKILL.md).
+
+## Documentation
+
+- [DeepSeek Bots completion plan](docs/plans/DEEPSEEK-BOTS-COMPLETION-PLAN.md) — the remaining coding work, dependencies, research and verification gates.
+- [DeepSeek Bots pack and setup](docs/deepseek-bots.md)
+- [Mobile Connect troubleshooting](docs/mobile/connect-troubleshooting.md)
+- [Mobile research](docs/mobile/)
+- [Security](SECURITY.md), [Privacy](PRIVACY.md) and [Troubleshooting](docs/TROUBLESHOOTING.md)
+
+## Project status
+
+| Area | Status |
+|---|---|
+| Desktop launch, clean close, local data | Verified |
+| DeepSeek provider, live turns, dated citations | Verified on this development host |
+| Provider/model/effort and context display | Implemented; live verification continues |
+| Android APK for this fork | Not built |
+| Mobile QR pairing | Source fix exists; installed upstream APK cannot receive it until rebuilt |
+| 24/7 access | Planned: PC + Tailscale first; Linux host on a VPS second |
+| Public CI | Not green yet; the missing DeepSeek/runtime scripts must be committed |
+| Full UI rebrand | Deferred; requires a userData migration |
+| Admission gate, per-bot export | Not implemented; not claimed |
 
 ## Commands
 
@@ -597,21 +661,16 @@ described above.
 
 ## Releases
 
-Releases are tag-driven. `bun run release:patch`, `release:minor`, or `release:major` prepares the
-version and changelog. After review, commit, preflight, and tag the release; pushing the tag builds a
-signed and notarized macOS ARM64 and x64 release, a signed Windows x64 release, and unsigned Linux x64
-and arm64 AppImages in GitHub Actions. After the release is published, the workflow pushes the Docker
-image to `ghcr.io/nightly-labs/openbot`.
-Installed builds check GitHub Releases for updates and expose download/restart controls in the account
-popover. Release signing secrets and the complete procedure are documented in
-[docs/RELEASING.md](docs/RELEASING.md).
+This fork has **no published releases**. The upstream release procedure is tag-driven and builds signed
+macOS and Windows installers and unsigned Linux AppImages; those artifacts belong to upstream OpenBot,
+not to DeepSeek Bots. Before this fork publishes anything, the plan's Code Freeze and verification
+gates must pass and a separate signing/release decision must be recorded.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Before we merge a contribution, each
-author from outside the organization signs the [Contributor Assignment Agreement](CLA.md), which
-assigns its copyright to Synthetify Labs. Community behavior is governed by the
-[Code of Conduct](CODE_OF_CONDUCT.md).
+This is a public fork. See [CONTRIBUTING.md](CONTRIBUTING.md) for the upstream contribution rules.
+Upstream merges require its Contributor Assignment Agreement; this fork does not claim upstream merge
+or support.
 
 ## License and attribution
 
@@ -619,14 +678,11 @@ Copyright 2026 Synthetify Labs spółka z ograniczoną odpowiedzialnością.
 
 Licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). You may use, modify, and
 distribute the code for permitted noncommercial purposes. Commercial use requires a separate license
-from the copyright owner. Buy a commercial license in Settings → Billing (Starter for 1 user, or
-Team for 2 to 10 users), or contact [licenses@openbot.run](mailto:licenses@openbot.run). Versions up to and including 0.1.11 remain
-available under Apache-2.0.
-See [NOTICE](NOTICE) for attribution and third-party notices.
+from the copyright owner. See [NOTICE](NOTICE) for attribution and third-party notices.
 
-OpenBot is an independent source-available project and is not affiliated with, endorsed by, or
-sponsored by OpenAI. OpenAI, ChatGPT, and Codex are used only to describe compatibility with their
-respective products and services.
+**This public fork is source-available, not a commercial release.** DeepSeek Bots is not affiliated
+with, endorsed by or sponsored by DeepSeek, Synthetify Labs or OpenAI. Product names are used only to
+describe compatibility.
 
 ### Shared macOS hosts
 
